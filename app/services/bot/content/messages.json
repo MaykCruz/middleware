@@ -124,5 +124,11 @@
     },
     "sem_interesse": {
         "text": "Sem problemas, precisando estamos a disposição!"
+    },
+    "limite_excedido_fgts": {
+        "text": "Limite mensal de consultas FGTS excedido!\n\nO robô transferiu para atendimento humano."
+    },
+    "clt_termo_enviado": {
+        "text": "Oh, em instantes, chegará uma mensagem do Banco Facta no seu Whatsapp com um link para que você aceite os termos, só com essa autorização eu consigo consultar a margem e o valor liberado."
     }
 }

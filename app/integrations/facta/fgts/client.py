@@ -1,4 +1,3 @@
-import httpx
 import logging
 from app.integrations.facta.auth import FactaAuth, create_client
 from app.utils.formatters import parse_valor_monetario

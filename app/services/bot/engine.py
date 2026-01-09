@@ -1,7 +1,8 @@
 import logging
 from app.services.bot.memory.session import SessionManager
 from app.integrations.huggy.service import HuggyService
-from app.services.products.fgts_service import FGTSService 
+from app.services.products.fgts_service import FGTSService
+from app.services.products.clt_service import CLTService
 from app.schemas.credit import AnalysisStatus
 from app.tasks.monitor import check_inactivity
 from app.core.timeouts import TIMEOUT_POLICES
@@ -18,6 +19,7 @@ class BotEngine:
         self.session = SessionManager()
         self.huggy = HuggyService()
         self.fgts_service = FGTSService()
+        self.clt_service = CLTService()
 
     def _schedule_timeout(self, chat_id: int, state: str, interaction_time: int):
         """
@@ -141,7 +143,22 @@ class BotEngine:
             opt = message_text.strip()
 
             if opt == "1": # Possui o mínimo de 6 meses.
-                self.huggy.send_message(chat_id, "iniciando_simulacao") # Retorno genérico pois ainda não temos o service do clt
+                self.huggy.send_message(chat_id, "iniciando_simulacao")
+
+                oferta = self.clt_service.consultar_oportunidade(cpf_limpo)
+
+                self.huggy.send_message(
+                    chat_id,
+                    oferta.message_key,
+                    variables=oferta.variables,
+                    force_internal=oferta.is_internal
+                )
+
+                if oferta.status == AnalysisStatus.APROVADO:
+                    self.huggy.move_to_aprovado(chat_id)
+                    self.huggy.start_auto_distribution(chat_id)
+                    next_state = "FINISHED"
+
                 self.huggy.start_auto_distribution(chat_id)
                 next_state = "FINISHED"
             
