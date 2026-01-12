@@ -1,7 +1,7 @@
 import httpx
 import logging
 from typing import Optional, Dict
-from app.integrations.facta.auth import FactaAuth
+from app.integrations.facta.auth import FactaAuth, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class FactaDadosCadastrais:
         params = {"cpf": cpf}
 
         try:
-            with httpx.Client(timeout=30.0) as client:
+            with create_client() as client:
                 logger.info(f"🔎 [Facta] Consultando dados cadastrais para CPF {cpf}...")
                 response = client.get(url, headers=self._get_headers, params=params)
 

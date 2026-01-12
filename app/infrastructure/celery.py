@@ -25,7 +25,8 @@ celery_app = Celery(
     backend=BACKEND_URL,
     include=[
         "app.tasks.processor",
-        "app.tasks.monitor"
+        "app.tasks.monitor",
+        "app.tasks.api_processor"
     ],
 )
 
@@ -35,7 +36,11 @@ celery_app.conf.update(
     task_time_limit=120,      # Mata a task se demorar mais de 120s (evita zumbis)
     task_soft_time_limit=110,
     worker_prefetch_multiplier=1, # Garante que tasks longas não travem tasks rápidas
+
+    task_default_queue="main-queue",
+
     task_routes={
         "process_webhook_event": {"queue": "main-queue"},
+        "app.tasks.api_processor.*": {"queue": "main-queue"}
     }
 )

@@ -4,15 +4,18 @@ from fastapi import FastAPI, Header, HTTPException, status, Depends
 from dotenv import load_dotenv
 from app.infrastructure.celery import celery_app
 from app.routers import webhooks
+from app.routers import api_fgts
+from app.routers import api_clt
 from app.core.logger import setup_logging
 
 load_dotenv()
-
 setup_logging()
 
-app = FastAPI(title="Huggy Middleware")
+app = FastAPI(title="Huggy Middleware API")
 
 app.include_router(webhooks.router)
+app.include_router(api_fgts.router)
+app.include_router(api_clt.router)
 
 def verify_admin_token(x_admin_token: str = Header(default=None)):
     """

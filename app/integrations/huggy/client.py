@@ -145,7 +145,7 @@ class HuggyClient:
                     logger.info(f"✅ [Huggy] Sucesso ao {action_name} (Chat {chat_id}).")
                     return True
                 elif response.status_code == 404:
-                    logger.warning(f"⚠️ [Huggy] Chat {chat_id} não encontrado (404).")
+                    logger.warning(f"❌ [Huggy] Falha ao {action_name}: {response.status_code} - Etapa informada não existe.")
                 else:
                     logger.error(f"❌ [Huggy] Falha ao {action_name}: {response.status_code} - {response.text}")
                     return False

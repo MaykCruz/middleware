@@ -41,6 +41,26 @@
             }
         ]
     },
+    "clt_oferta_disponivel": {
+        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta? 😉"
+    },
+    "clt_oferta_disponivel_conta": {
+        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta nessa conta? 😉\n\n{dados_bancarios}",
+        "options": [
+            {
+                "id": "1",
+                "title": "Pode prosseguir!"
+            },
+            {
+                "id": "2",
+                "title": "Alterar minha conta!"
+            },
+            {
+                "id": "3",
+                "title": "Simular outros valores!"
+            }
+        ]
+    },
     "sem_autorizacao": {
         "text": "Tentei realizar a simulação, porém está constando que o banco está sem autorização 😕 Poderia, por gentileza, autorizar esses bancos no seu aplicativo do FGTS?\n\nRealizando a autorização consigo consultar aqui bem rapidinho!\n\n👉🏼 FACTA FINANCEIRA\n👉🏼 BMS SOCIEDADE DE CREDITO\n\nCaso precise de ajuda é só me chamar!",
         "file": "https://i.postimg.cc/0y4W7r2R/passo_a_passo.jpg"
@@ -50,6 +70,9 @@
     },
     "mudancas_cadastrais": {
         "text": "Realizei a simulação e consta que foram feitas Mudanças Cadastrais na sua conta do FGTS que impedem de prosseguir com a liberação.\n\nProvavelmente a Caixa realizou alguma atualização automática em seus dados, vamos aguardar geralmente demora de 2 ou 3 dias para atualizar!\n\nMas não se preocupe, iremos consultar todos os dias para verificar se já liberou !!!"
+    },
+    "aniversariante": {
+        "text": "Verifiquei que faz aniversário no próximo mês!\nNesse caso, não é permitido pelo sistema do banco seguir com a simulação no momento.\nSerá necessário aguardar até o dia *{data}* para prosseguirmos com a simulação."
     },
     "saldo_nao_encontrado": {
         "text": "Infelizmente não vou conseguir realizar a simulação devido a um erro da Caixa que não encontra o seu saldo!\nA orientação é que procure uma agência da Caixa Econômica para resolução desse erro!",
@@ -130,5 +153,38 @@
     },
     "clt_termo_enviado": {
         "text": "Oh, em instantes, chegará uma mensagem do Banco Facta no seu Whatsapp com um link para que você aceite os termos, só com essa autorização eu consigo consultar a margem e o valor liberado."
+    },
+    "clt_telefone_ja_vinculado": {
+        "text": "Não foi possível enviar o termo ao cliente, telefone já está vinculado a outro CPF."
+    },
+    "clt_cpf_nao_encontrado_na_base": {
+        "text": "CPF do cliente não encontrado na base."
+    },
+    "clt_recusa_definitiva": {
+        "text": "Infelizmente não será possível a liberação do Consignado CLT devido aos critérios de crédito dos bancos!\n\nPode ser que você já tenha comprometido a sua margem para empréstimo pessoal, ou apenas não passou na análise de crédito no CPF ou do CNPJ da empresa!\n\nInfelizmente não possuímos mais informações sobre o motivo da restrição."
+    },
+    "clt_nao_elegivel": {
+        "mensagem": "Infelizmente pela FACTA FINANCEIRA não será possível a liberação do Consignado CLT devido aos critérios de crédito do banco!\n\nMas não se preocupe temos outras opções para simulação, possa ser que demore um pouquinho porque vou simular em todos e te informo por aqui\n\nDesde já agradeço pela atenção!"
+    },
+    "clt_virada_folha_cliente": {
+        "text": "O Empréstimo CLT está em período de maciça (fechamento de folha), quando retornar conseguimos prosseguir com a simulação.\n\nGostaria de consultar o saldo do FGTS?"
+    },
+    "clt_virada_folha": {
+        "text": "O Empréstimo CLT está em período de maciça (fechamento de folha)."
+    },
+    "idade_insuficiente_facta": {
+        "text": "Cliente possui {idade} anos, não enquadra Facta (mínimo 21 anos). Enquadra Mercantil e Hub!"
+    },
+    "idade_insuficiente": {
+        "text": "Cliente possui {idade} anos, não enquadra em nenhum banco."
+    },
+    "sem_margem": {
+        "text": "Cliente não possui margem suficiente: {margem}."
+    },
+    "categoria_invalida": {
+        "text": "Categoria de trabalho inválida {categoria}, permitidas (101, 102)."
+    },
+    "sem_oferta_disponivel": {
+        "text": "Cliente não possui ofertas disponíveis FACTA."
     }
 }

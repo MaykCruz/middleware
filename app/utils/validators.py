@@ -8,7 +8,7 @@ def validate_cpf(cpf: str) -> bool:
     Retorna True se válido, False se inválido.
     """
     # Remove caracteres não numéricos
-    cpf = re.sub(r'[^0-9]', '', cpf)
+    cpf = clean_digits(cpf)
 
     if len(cpf) != 11:
         return False
@@ -96,3 +96,29 @@ def calcular_segundo_dia_util_prox_mes():
     
     # Retorna formatado sem depender do locale do Windows/Linux
     return formatar_data_br(data_resultado)
+
+def formatar_telefone_br(telefone: str) -> str | None:
+    """
+    Padroniza telefones brasileiros para o formato 55 + DDD + 9 + 8 dígitos (13 digitos).
+    Retorna o número limpo e formatado ou None se for inválido.
+    """
+    if not telefone:
+        return None
+    
+    tel = clean_digits(telefone)
+
+    if len(tel) == 13:
+        if tel.startswith("55"):
+            return tel
+        return None
+    
+    if len(tel) == 12 and tel.startswith("55"):
+        return f"{tel[:4]}9{tel[4:]}"
+    
+    if len(tel) == 11:
+        return f"55{tel}"
+    
+    if len(tel) == 10:
+        return f"55{tel[:2]}9{tel[2:]}"
+    
+    return None

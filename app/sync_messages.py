@@ -1,6 +1,7 @@
 import httpx
 import json
 import os
+import time
 
 # 1. Configuração
 # Cole aqui a URL "RAW" do seu Gist (aquela mesma do .env)
@@ -14,7 +15,8 @@ def sync():
     
     try:
         # 2. Baixa o conteúdo
-        response = httpx.get(GIST_URL)
+        timestamp = int(time.time())
+        response = httpx.get(f"{GIST_URL}?t={timestamp}")
         
         if response.status_code != 200:
             print(f"❌ Erro ao baixar: {response.status_code}")

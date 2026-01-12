@@ -20,7 +20,8 @@ class HuggyService:
 
         self.flows = {
             "AUTO_DISTRIBUTION": os.getenv("HUGGY_FLOW_AUTO_DISTRIBUTION"),
-            "AUTHORIZATION": os.getenv("HUGGY_FLOW_AUTHORIZATION")
+            "AUTHORIZATION": os.getenv("HUGGY_FLOW_AUTHORIZATION"),
+            "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION")
         }
 
         self.tabulations = {
@@ -30,7 +31,9 @@ class HuggyService:
             "ANIVERSARIANTE": os.getenv("HUGGY_ANIVERSARIANTE"),
             "SALDO_NAO_ENCONTRADO": os.getenv("HUGGY_SALDO_NAO_ENCONTRADO"),
             "SEM_SALDO": os.getenv("HUGGY_SEM_SALD0"),
-            "SEM_INTERESSE": os.getenv("HUGGY_SEM_INTERESSE")
+            "SEM_INTERESSE": os.getenv("HUGGY_SEM_INTERESSE"),
+            "CLT_RECUSA_DEFINITIVA": os.getenv("HUGGY_CLT_RECUSA_DEFINITIVA"),
+            "SEM_MARGEM_CLT": os.getenv("HUGGY_TABULATION_SEM_MARGEM_CLT")
         }
 
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:
@@ -100,6 +103,22 @@ class HuggyService:
 
         if not flow_id:
             logger.warning("⚠️ HHUGGY_FLOW_AUTHORIZATION não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_flow_wait_term(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de aguardando autorização termo CLT pré cadastrado Huggy.
+        """
+        flow_id = self.flows.get("TERM_AUTHORIZATION")
+
+        if not flow_id:
+            logger.warning("⚠️ HHUGGY_TERM_AUTHORIZATION não configurado no .env")
             return False
         
         try:

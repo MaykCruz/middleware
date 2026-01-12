@@ -112,8 +112,7 @@ class CLTService:
             if motivo == "VIRADA_FOLHA_CLT":
                 return CreditOffer(
                     status=AnalysisStatus.VIRADA_FOLHA,
-                    message_key="clt_virada_folha",
-                    is_internal=True,
+                    message_key="clt_virada_folha_cliente",
                     raw_details=resultado_raw
                 )
             

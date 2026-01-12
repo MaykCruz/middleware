@@ -66,3 +66,9 @@ redis-cli -u "SUA_REDIS_KEY" FLUSHALL
 * `MESSAGES_URL`: Link RAW do Gist (ex: `gist.githubusercontent.com/.../raw/messages.json`).
 * `CELERY_RESULT_BACKEND`: URL do Redis.
 
+
+Notes for me:
+
+- Verificar a questão do possível looping infinito quando enviamos o termo, aguardamos, conferimos, enviamos novamente...
+- Verificar a questão das idades limites, que não são tão simples quanto fazer uma verificação da idade mínima.
+

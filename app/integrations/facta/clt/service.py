@@ -7,7 +7,7 @@ from app.utils.formatters import parse_valor_monetario
 logger = logging.getLogger(__name__)
 
 class FactaCLTService:
-    MARGEM_COMPROMETIDA_FACTA = 0.80
+    MARGEM_COMPROMETIDA_FACTA = 0.90
 
     def __init__(self):
         self.client = FactaCLTAdapter()
@@ -92,8 +92,10 @@ class FactaCLTService:
         return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima)
         
     def _validar_regras_basicas(self, dados: dict) -> dict:
-        if dados.get("codigoCategoriaTrabalhador") not in ["101", "102"]:
-            return {"ok": False, "motivo": "CATEGORIA_CNAE_INVALIDA", "msg": "Categoria do trabalhador inválida."}
+
+        categoria = dados.get("codigoCategoriaTrabalhador")
+        if categoria not in ["101", "102"]:
+            return {"ok": False, "motivo": "CATEGORIA_CNAE_INVALIDA", "msg": "Categoria do trabalhador inválida.", "categoria": categoria}
         
         idade = self._calcular_idade(dados.get("dataNascimento"))
         if idade < 21:
@@ -101,7 +103,7 @@ class FactaCLTService:
         
         margem = parse_valor_monetario(dados.get("valorMargemDisponivel", 0))
         if margem <= 0:
-            return {"ok": False, "motivo": "SEM_MARGEM", "msg": "Margem zerada"}
+            return {"ok": False, "motivo": "SEM_MARGEM", "msg": "Margem zerada", "margem": margem}
         
         return {"ok": True}
     

@@ -43,7 +43,7 @@ def obter_mes_inicio_desconto() -> str:
 
     meses_para_somar = 2 if agora.day <= DIA_CORTE else 3
 
-    data_futura = agora + relativedelta(month=meses_para_somar)
+    data_futura = agora + relativedelta(months=meses_para_somar)
 
     meses_pt = {
         1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
