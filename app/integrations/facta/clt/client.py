@@ -27,16 +27,20 @@ class FactaCLTAdapter:
     def solicitar_termo(self, cpf: str, nome: str, celular: str) -> dict:
         """
         Envia o termo de autorização via WhatsApp (Facta)
+        OBS: A API da Facta NÃO aceita DDI (55), apenas DDD + Número.
         """
         url = f"{self.base_url}/solicita-autorizacao-consulta"
         headers = self._get_headers
         headers["Content-Type"] = "application/x-www-form-urlencoded"
+        celular_api = celular
+        if celular and celular.startswith("55") and len(celular) == 13:
+            celular_api = celular[2:]
 
         data = {
             "averbador": self.AVERBADOR,
             "nome": nome,
             "cpf": cpf,
-            "celular": celular,
+            "celular": celular_api,
             "tipo_envio": "WHATSAPP"
         }
 

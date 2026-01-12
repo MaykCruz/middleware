@@ -68,7 +68,18 @@ class FactaCLTService:
 
         validacao = self._validar_regras_basicas(trabalhador)
         if not validacao["ok"]:
-            return {"aprovado": False, "motivo": validacao["motivo"], "msg_tecnica": validacao["msg"], "dados": trabalhador}
+            retorno = {
+                "aprovado": False,
+                "motivo": validacao["motivo"], 
+                "msg_tecnica": validacao["msg"], 
+                "dados": trabalhador
+            }
+
+            for chave, valor in validacao.items():
+                if chave not in ["ok", "motivo", "msg"]:
+                    retorno[chave] = valor
+                    
+            return retorno
         
         meses_servico = self._calcular_meses(trabalhador.get("dataAdmissao"))
         resp_politica = self.client.validar_politica_credito(

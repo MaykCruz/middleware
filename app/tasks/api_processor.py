@@ -4,6 +4,7 @@ from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
 from app.integrations.huggy.service import HuggyService
 from app.schemas.credit import AnalysisStatus
+from app.utils.formatters import formatar_moeda
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ def executar_fluxo_clt(chat_id: str, cpf: str, nome: str, celular: str, contact_
             margem = oferta.raw_details.get("margem")
             huggy.send_message(chat_id=chat_id,
             message_key="sem_margem",
-            variables={"margem": margem},
+            variables={"margem": formatar_moeda(margem)},
             force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("SEM_MARGEM_CLT"))
         
