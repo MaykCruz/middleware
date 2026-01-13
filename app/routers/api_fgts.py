@@ -56,6 +56,7 @@ async def iniciar_simulacao_fgts(
 
     return {
         "status": "PROCESSANDO",
+        "code": "sucesso",
         "product": "FGTS",
         "task_id": task.id,
         "message": "Solicitação FGTS iniciada."

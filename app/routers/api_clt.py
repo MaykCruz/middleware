@@ -55,6 +55,7 @@ async def iniciar_simulacao_clt(
 
     return {
         "status": "PROCESSANDO",
+        "code": "sucesso",
         "product": "CLT",
         "task_id": task.id,
         "message": "Solicitação CLT iniciada."
