@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from logtail import LogtailHandler
 
 def setup_logging():
@@ -17,7 +18,7 @@ def setup_logging():
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     root_logger.setLevel(log_level)
 
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
     root_logger.addHandler(console_handler)
 
