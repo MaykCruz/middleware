@@ -60,12 +60,13 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
     
     except Exception as e:
         logger.error(f"💥 [Worker FGTS] Erro crítico: {e}", exc_info=True)
-        HuggyService().send_message(
+        erro_handler = HuggyService()
+        erro_handler.send_message(
             chat_id=chat_id,
             message_key="retorno_desconhecido",
             variables={"erro": str(e)},
             force_internal=True)
-        huggy.start_auto_distribution(chat_id)
+        erro_handler.start_auto_distribution(chat_id)
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", acks_late=True)
 def executar_fluxo_clt(chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None):
@@ -161,10 +162,11 @@ def executar_fluxo_clt(chat_id: str, cpf: str, nome: str, celular: str, contact_
 
     except Exception as e:
         logger.error(f"💥 [Worker CLT] Erro crítico: {e}", exc_info=True)
-        HuggyService().send_message(
+        erro_handler = HuggyService()
+        erro_handler.send_message(
             chat_id=chat_id,
             message_key="retorno_desconhecido",
             variables={"erro": str(e)},
-            force_internal=True
-        )
+            force_internal=True)
+        erro_handler.start_auto_distribution(chat_id)
         

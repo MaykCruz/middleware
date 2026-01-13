@@ -60,7 +60,7 @@ class FactaCLTAdapter:
             
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao solicitar termo: {e}")
-            return {"erro": "ERRO_TECNICO", "msg_original": str(e)}
+            return {"status": "ERRO_TECNICO", "msg_original": str(e)}
         
     def consultar_dados_trabalhador(self, cpf: str) -> dict:
         """
@@ -84,7 +84,7 @@ class FactaCLTAdapter:
             
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao consultar dados trabalhador: {e}")
-            return {"erro": True, "mensagem": str(e)}
+            return {"status": "ERRO_TECNICO", "msg_original": str(e)}
     
     def validar_politica_credito(self, cpf: str, matricula: str, nascimento: str, admissao: str) -> dict:
         """
@@ -132,7 +132,7 @@ class FactaCLTAdapter:
                 return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
 
         except Exception as e:
-            return {"erro": True, "mensagem": str(e)}
+            return {"status": "ERRO_TECNICO", "msg_original": str(e)}
     
     def buscar_operacoes(self, cpf: str, nascimento: str, valor_parcela: float = None, valor_solicitado = None) -> dict:
         """
