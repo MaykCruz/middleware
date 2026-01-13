@@ -136,6 +136,14 @@ def executar_fluxo_clt(chat_id: str, cpf: str, nome: str, celular: str, contact_
             force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
         
+        elif oferta.status == AnalysisStatus.REPROVADO_POLITICA:
+            msg_tecnica = oferta.raw_details.get("msg_tecnica")
+            huggy.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
+            huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
+        
         elif oferta.status == AnalysisStatus.SEM_OFERTA:
             huggy.send_message(chat_id=chat_id,
             message_key="sem_oferta_disponivel",

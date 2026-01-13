@@ -30,6 +30,7 @@ class AnalysisStatus(str, Enum):
     CATEGORIA_CNAE_INVALIDA = "CATEGORIA_CNAE_INVALIDA"
     SEM_OFERTA = "SEM_OFERTA"
     VIRADA_FOLHA = "VIRADA_FOLHA"
+    REPROVADO_POLITICA = "REPROVADO_POLITICA"
     
 
 class CreditOffer(BaseModel):

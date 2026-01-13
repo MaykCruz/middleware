@@ -86,19 +86,19 @@ class FactaCLTAdapter:
             logger.error(f"❌ [Facta CLT] Erro ao consultar dados trabalhador: {e}")
             return {"erro": True, "mensagem": str(e)}
     
-    def validar_politica_credito(self, cpf: str, meses: int, nascimento: str, sexo: str) -> dict:
+    def validar_politica_credito(self, cpf: str, matricula: str, nascimento: str, admissao: str) -> dict:
         """
-        Consulta limites de prazo e valor pré-aprovado.
+        [ATUALIZADO] Consulta limites de prazo e valor pré-aprovado.
+        Novo Endpoint: /analise-politica-credito
         """
-        url = f"{self.base_url}/consignado-trabalhador/valida-politica-credito"
+        url = f"{self.base_url}/consignado-trabalhador/analise-politica-credito"
         params = {
             "cpf": cpf,
-            "tempo_meses_empresa": meses,
-            "data_nascimento": nascimento,
-            "sexo": sexo,
-            "prazo": 180,
-            "valor": 20000,
-            "cnae": self.CNA_PADRAO
+            "matricula": matricula,
+            "dataNascimento": nascimento,
+            "dataAdmissao": admissao,
+            "prazo": 48,
+            "valorEmprestimo": 26000
         }
 
         try:
@@ -106,7 +106,29 @@ class FactaCLTAdapter:
                 resp = client.get(url, headers=self._get_headers, params=params)
                 data = resp.json()
 
-                status = "ERRO_POLITICA" if data.get("erro") else "SUCESSO"
+                def tem_valor_disponivel(dado):
+                    val = dado.get("valor_maximo_disponivel")
+                    try:
+                        return val is not None and float(val) > 0
+                    except (ValueError, TypeError):
+                        return False
+
+                if data.get("erro") is True:
+                    status = "ERRO_TECNICO"
+
+                elif str(data.get("aprovado")) == "1":
+                    status = "SUCESSO"
+                
+                elif str(data.get("aprovado")) == "0" and tem_valor_disponivel(data):
+                    status = "SUCESSO"
+                
+                elif str(data.get("aprovado")) == "0":
+                    status = "REPROVADO_POLITICA"
+
+                else:
+                    logger.warning(f"⚠️ [Facta] Retorno desconhecido na política: {data}")
+                    status = "ERRO_TECNICO"
+                
                 return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
 
         except Exception as e:

@@ -186,5 +186,8 @@
     },
     "sem_oferta_disponivel": {
         "text": "Cliente não possui ofertas disponíveis FACTA."
+    },
+    "blank": {
+        "text": "{blank}"
     }
 }

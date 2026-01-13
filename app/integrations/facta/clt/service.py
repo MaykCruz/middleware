@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 from app.integrations.facta.clt.client import FactaCLTAdapter
 from app.utils.formatters import parse_valor_monetario
 
@@ -81,18 +80,27 @@ class FactaCLTService:
                     
             return retorno
         
-        meses_servico = self._calcular_meses(trabalhador.get("dataAdmissao"))
+        matricula = trabalhador.get("matricula")
+
+        if not matricula:
+            logger.warning(f"⚠️ [CLT] CPF {cpf} sem matrícula retornada na consulta de dados. Abortando.")
+            return {
+                "aprovado": False,
+                "motivo": "ERRO_TECNICO",
+                "msg_tecnica": "Matrícula funcional não localizada nos dados do trabalhador."
+            }
+        
         resp_politica = self.client.validar_politica_credito(
             cpf,
-            meses=meses_servico,
+            matricula=trabalhador.get("matricula", ""),
             nascimento=trabalhador.get("dataNascimento"),
-            sexo="M" if trabalhador.get("sexo_codigo") == "1" else "F"
+            admissao=trabalhador.get("dataAdmissao")
         )
 
         if resp_politica["status"] != "SUCESSO":
             return {
                 "aprovado": False,
-                "motivo": "REPROVADO_POLITICA",
+                "motivo": resp_politica["status"],
                 "msg_tecnica": resp_politica.get("msg_original")
             }
         
@@ -129,8 +137,8 @@ class FactaCLTService:
             return {"aprovado": False, "motivo": "SEM_OPERACOES", "msg_tecnica": resp.get("msg_original")}
         
         tabelas = resp["dados"].get("tabelas", [])
-        prazo_politica = int(politica.get("prazo", 0))
-        teto_politica = float(politica.get("valor", 0))
+        prazo_politica = int(politica.get("prazo_maximo_disponivel", 0))
+        teto_politica = float(politica.get("valor_maximo_disponivel", 0))
 
         tabelas_no_prazo = [t for t in tabelas if t.get("prazo") == prazo_politica]
 
@@ -216,19 +224,6 @@ class FactaCLTService:
             d = datetime.strptime(data_str, "%d/%m/%Y")
             return (datetime.today() -d).days // 365
         except: return 0
-    
-    def _calcular_meses(self, data_str):
-        if not data_str: return 0
-        try:
-            data_admissao = datetime.strptime(data_str, "%d/%m/%Y")
-            data_atual = datetime.now()
-            diferenca = relativedelta(data_atual, data_admissao)
-            meses_completos = diferenca.years * 12 + diferenca.months
-
-            return max(0, meses_completos)
-        except Exception as e:
-            logger.error(f"Erro ao calcular meses: {e}")
-            return 0
 
 
 

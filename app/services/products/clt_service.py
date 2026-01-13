@@ -93,12 +93,8 @@ class CLTService:
             
             if motivo == "REPROVADO_POLITICA":
                 return CreditOffer(
-                    status=AnalysisStatus.RETORNO_DESCONHECIDO,
-                    message_key="retorno_desconhecido",
-                    is_internal=True,
-                    variables={
-                    "erro": msg_tecnica
-                    },
+                    status=AnalysisStatus.REPROVADO_POLITICA,
+                    message_key="clt_recusa_definitiva",
                     raw_details=resultado_raw
                 )
             
