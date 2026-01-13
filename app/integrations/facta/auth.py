@@ -16,7 +16,11 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
         client_kwargs = {"timeout": 30.0}
 
         if proxy_url:
+            logger.info(f"🛡️ [Network] Configurando Proxy Facta: {proxy_url}")
             client_kwargs["proxy"] = proxy_url
+        
+        else:
+            logger.warning("⚠️ [Network] FACTA_PROXY_URL não definido. Usando conexão direta.")
         
         return httpx.Client(**client_kwargs)
 
@@ -46,7 +50,7 @@ class FactaAuth:
                return new_token
             except Exception as e:
                 self.token_manager.release_lock(self.SCOPE)
-                logger.error(f"❌ [FACTA] Falha crítica na renovação: {str(e)}")
+                logger.exception(f"❌ [FACTA] Falha crítica na renovação: {str(e)}")
                 raise e
         
         else:
@@ -84,6 +88,7 @@ class FactaAuth:
                 if not token:
                     raise ValueError("API retornou 200 mas sem campo 'token'.")
                 
+                logger.info("✅ [FACTA] Token renovado com sucesso via Proxy.")
                 return token
             
         except httpx.HTTPStatusError as e:

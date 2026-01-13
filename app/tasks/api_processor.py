@@ -64,8 +64,8 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
             chat_id=chat_id,
             message_key="retorno_desconhecido",
             variables={"erro": str(e)},
-            force_internal=True
-        )
+            force_internal=True)
+        huggy.start_auto_distribution(chat_id)
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", acks_late=True)
 def executar_fluxo_clt(chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None):
