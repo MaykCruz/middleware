@@ -16,7 +16,7 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
         client_kwargs = {"timeout": 30.0}
 
         if proxy_url:
-            logger.info(f"🛡️ [Network] Configurando Proxy Facta: {proxy_url}")
+            logger.info(f"🛡️ [Network] Configurando Proxy Facta.")
             client_kwargs["proxy"] = proxy_url
         
         else:
