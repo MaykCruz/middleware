@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from app.integrations.facta.clt.client import FactaCLTAdapter
 from app.utils.formatters import parse_valor_monetario
 
@@ -20,6 +21,13 @@ class FactaCLTService:
         """
         resp_dados = self.client.consultar_dados_trabalhador(cpf)
         status_dados = resp_dados["status"]
+
+        if status_dados == "PROCESSAMENTO_PENDENTE":
+            return {
+                "aprovado": False,
+                "motivo": "PROCESSAMENTO_PENDENTE",
+                "msg_tecnica": resp_dados.get("msg_original")
+            }
 
         if status_dados == "TERMO_EXPIRADO":
             logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
@@ -98,6 +106,20 @@ class FactaCLTService:
         )
 
         if resp_politica["status"] != "SUCESSO":
+
+            if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
+                data_admissao = trabalhador.get("dataAdmissao")
+                tempo_trabalho = self._calcular_meses(data_admissao)
+
+                logger.info(f"🧐 [CLT] Reprovado Facta. Tempo de casa: {tempo_trabalho} meses.")
+
+                if tempo_trabalho < 6:
+                    return {
+                        "aprovado": False,
+                        "motivo": "MENOS_SEIS_MESES",
+                        "msg_tecnica": "Tempo de trabalho inferior a 6 meses."
+                    }
+                
             return {
                 "aprovado": False,
                 "motivo": resp_politica["status"],
@@ -224,6 +246,18 @@ class FactaCLTService:
             d = datetime.strptime(data_str, "%d/%m/%Y")
             return (datetime.today() -d).days // 365
         except: return 0
+    
+    def _calcular_meses(self, data_str):
+        if not data_str: return 0
+        try:
+            data_admissao = datetime.strptime(data_str, "%d/%m/%Y")
+            data_atual = datetime.now()
+            diferenca = relativedelta(data_atual, data_admissao)
+            meses_completos = diferenca.years * 12 + diferenca.months
+            return max(0, meses_completos)
+        except Exception as e:
+            logger.error(f"Erro ao calcular meses: {e}")
+            return 0
 
 
 

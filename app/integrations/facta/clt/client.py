@@ -74,6 +74,15 @@ class FactaCLTAdapter:
                 resp = client.get(url, headers=self._get_headers, params=params)
                 data = resp.json()
 
+                msg = data.get("mensagem", "").lower()
+
+                if data.get("erro") and "fila de autorização" in msg:
+                    return {
+                        "status": "PROCESSAMENTO_PENDENTE",
+                        "dados": [],
+                        "msg_original": data.get("mensagem", "")
+                    }
+
                 status = self._interpretar_retorno_dados_trabalhador(data)
 
                 return {
@@ -123,7 +132,7 @@ class FactaCLTAdapter:
                     status = "SUCESSO"
                 
                 elif str(data.get("aprovado")) == "0":
-                    status = "REPROVADO_POLITICA"
+                    status = "REPROVADO_POLITICA_FACTA"
 
                 else:
                     logger.warning(f"⚠️ [Facta] Retorno desconhecido na política: {data}")

@@ -91,10 +91,17 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
-            if motivo == "REPROVADO_POLITICA":
+            if motivo == "REPROVADO_POLITICA_FACTA":
                 return CreditOffer(
-                    status=AnalysisStatus.REPROVADO_POLITICA,
-                    message_key="clt_recusa_definitiva",
+                    status=AnalysisStatus.REPROVADO_POLITICA_FACTA,
+                    message_key="clt_nao_elegivel",
+                    raw_details=resultado_raw
+                )
+            
+            if motivo == "MENOS_SEIS_MESES":
+                return CreditOffer(
+                    status=AnalysisStatus.MENOS_SEIS_MESES,
+                    message_key="menos_seis_meses",
                     raw_details=resultado_raw
                 )
             
@@ -120,6 +127,15 @@ class CLTService:
                     variables={
                     "erro": msg_tecnica
                     },
+                    raw_details=resultado_raw
+                )
+            
+            if motivo == "PROCESSAMENTO_PENDENTE":
+                return CreditOffer(
+                    status=AnalysisStatus.PROCESSAMENTO_PENDENTE,
+                    message_key="blank",
+                    variables={"blank": msg_tecnica},
+                    is_internal=True,
                     raw_details=resultado_raw
                 )
             
