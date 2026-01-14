@@ -112,7 +112,7 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
-            if motivo in ["ERRO_TECNICO", "ERRO_API", "TIMEOUT_FILA", "ERRO_RECALCULO", "TOKEN_EXPIRADO", "ERRO_TERMO"]:
+            if motivo in ["ERRO_TECNICO", "ERRO_API", "TIMEOUT_FILA", "ERRO_RECALCULO", "TERMO_EXPIRADO", "ERRO_TERMO"]:
                 return CreditOffer(
                     status=AnalysisStatus.ERRO_TECNICO,
                     message_key="retorno_desconhecido",

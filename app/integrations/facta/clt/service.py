@@ -21,8 +21,8 @@ class FactaCLTService:
         resp_dados = self.client.consultar_dados_trabalhador(cpf)
         status_dados = resp_dados["status"]
 
-        if status_dados == "TOKEN_EXPIRADO":
-            logger.info(f"🔐 [CLT] Token expirado para {cpf}. Solicitando novo termo...")
+        if status_dados == "TERMO_EXPIRADO":
+            logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
 
             resp_termo = self.client.solicitar_termo(cpf, nome, celular)
             status_termo = resp_termo["status"]

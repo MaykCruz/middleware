@@ -201,7 +201,7 @@ class FactaCLTAdapter:
         msg = data.get("mensagem", "").lower()
 
         if "token expirado, necessário utilizar o endpoint" in msg:
-            return "TOKEN_EXPIRADO"
+            return "TERMO_EXPIRADO"
         
         if "consulta de dados indisponível devido a virada de folha" in msg:
             return "VIRADA_FOLHA_CLT"
