@@ -68,6 +68,13 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
+            if motivo == "NAO_ELEGIVEL":
+                return CreditOffer(
+                    status=AnalysisStatus.NAO_ELEGIVEL,
+                    message_key="clt_nao_elegivel",
+                    raw_details=resultado_raw
+                )
+            
         
             if motivo == "IDADE_INSUFICIENTE_FACTA":
                 idade = int(resultado_raw.get("idade", 0))

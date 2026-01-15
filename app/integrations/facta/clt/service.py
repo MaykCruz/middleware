@@ -144,7 +144,7 @@ class FactaCLTService:
 
         logger.debug(f"💰 [CLT] Salário: {salario} | Fator: {fator_comprometimento} | Margem Líq: {margem} -> Comprometida: {parcela_maxima}")
 
-        return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima)
+        return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima, margem_real=margem)
     
     def _definir_fator_margem(self, salario: float) -> float:
         """
@@ -162,6 +162,15 @@ class FactaCLTService:
             return 0.80
         
     def _validar_regras_basicas(self, dados: dict) -> dict:
+
+        elegivel = str(dados.get("elegivel", "")).upper()
+
+        if elegivel != "SIM":
+            return {
+                "ok": False,
+                "motivo": "NAO_ELEGIVEL",
+                "msg": f"Cliente marcado como não elegível na base Facta (Elegível: {elegivel})."
+            }
 
         categoria = dados.get("codigoCategoriaTrabalhador")
         if categoria not in ["101", "102"]:
@@ -192,47 +201,64 @@ class FactaCLTService:
             }
                 
         margem = parse_valor_monetario(dados.get("valorMargemDisponivel", 0))
-        if margem <= 50:
-            return {"ok": False, "motivo": "SEM_MARGEM", "msg": f"Margem insuficiente: R$ {margem} (Mínimo R$ 50,01)", "margem": margem}
+
+        if margem <= 20.00:
+            return {"ok": False, "motivo": "SEM_MARGEM", "msg": f"Margem insuficiente: R$ {margem} (Mínimo R$ 20,01)", "margem": margem}
         
         return {"ok": True}
     
-    def _encontrar_melhor_tabela(self, cpf, trab, politica, parcela_max) -> dict:
+    def _encontrar_melhor_tabela(self, cpf, trab, politica, parcela_max, margem_real: float = 0.0) -> dict:
         """
         Busca operações e filtra estritamente pelo prazo e valor da política.
         """
         nasc = trab.get("dataNascimento")
         resp = self.client.buscar_operacoes(cpf, nasc, valor_parcela=parcela_max)
 
-        if resp["status"] != "SUCESSO":
-            return {"aprovado": False, "motivo": "SEM_OPERACOES", "msg_tecnica": resp.get("msg_original")}
-        
-        tabelas = resp["dados"].get("tabelas", [])
+        oferta_encontrada = None
+        motivo_falha = "SEM_OPERACOES"
+        msg_falha = resp.get("msg_original", "Nenhuma tabela disponível.")
 
-        try:
-            prazo_politica = int(politica.get("prazo_maximo_disponivel", 0))
-            teto_politica = float(politica.get("valor_maximo_disponivel", 0))
-        except ValueError:
-            return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Erro na leitura dos valores da política."}
+        if resp.get("status") == "SUCESSO":
+            tabelas = resp["dados"].get("tabelas", [])
 
-        tabelas_no_prazo = [t for t in tabelas if t.get("prazo") == prazo_politica]
+            try:
+                prazo_politica = int(politica.get("prazo_maximo_disponivel", 0))
+                teto_politica = float(politica.get("valor_maximo_disponivel", 0))
+            except ValueError:
+                return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Erro na leitura dos valores da política."}
 
-        if not tabelas_no_prazo:
+            tabelas_no_prazo = [t for t in tabelas if t.get("prazo") == prazo_politica]
+
+            if tabelas_no_prazo:
+                melhor_opcao = None
+                for tabela in tabelas_no_prazo:
+                    if tabela.get("valor_seguro", 0) > 0:
+                        melhor_opcao = tabela
+                        break
+                
+                if not melhor_opcao:
+                    melhor_opcao = tabelas_no_prazo[0]
+                
+                oferta_encontrada = melhor_opcao
+            else:
+                motivo_falha = "SEM_PRAZO_COMPATIVEL"
+                msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
+
+        if not oferta_encontrada:
+
+            if margem_real <= 50.00:
+                return {
+                    "aprovado": False,
+                    "motivo": "SEM_MARGEM",
+                    "msg_tecnica": f"Sem oferta Facta e margem R$ {margem_real} insuficiente para transbordo."
+                }
+            
             return {
                 "aprovado": False,
-                "motivo": "SEM_PRAZO_COMPATIVEL",
-                "msg_tecnica": f"Nenhuma tabela encontrada para o prazo de {prazo_politica} meses"
+                "motivo": motivo_falha,
+                "msg_tecnica": msg_falha
             }
-        
-        melhor_opcao = None
-        for tabela in tabelas_no_prazo:
-            if tabela.get("valor_seguro", 0) > 0:
-                melhor_opcao = tabela
-                break
-        
-        if not melhor_opcao:
-            melhor_opcao = tabelas_no_prazo[0]
-        
+            
         valor_liberado = float(melhor_opcao.get("valor_liquido", 0))
 
         if valor_liberado > teto_politica:

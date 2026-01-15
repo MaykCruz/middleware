@@ -121,6 +121,19 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.CPF_NAO_ENCONTRADO_NA_BASE:
+            msg = oferta.raw_details.get("msg_tecnica")
+            huggy.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
+            huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
+        
+        elif oferta.status == AnalysisStatus.NAO_ELEGIVEL:
+            msg = oferta.raw_details.get("msg_tecnica")
+            huggy.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE_FACTA:
