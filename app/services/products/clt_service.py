@@ -87,7 +87,7 @@ class CLTService:
             if motivo == "SEM_MARGEM":
                 return CreditOffer(
                     status=AnalysisStatus.SEM_MARGEM,
-                    message_key="clt_recusa_definitiva",
+                    message_key="sem_margem_cliente",
                     raw_details=resultado_raw
                 )
             
