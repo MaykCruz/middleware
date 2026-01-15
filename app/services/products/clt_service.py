@@ -15,13 +15,13 @@ class CLTService:
         self.facta_service = FactaCLTService()
         self.dados_cadastrais = FactaDadosCadastrais()
         
-    def consultar_oportunidade(self, cpf: str, nome: str, celular: str) -> CreditOffer:
+    def consultar_oportunidade(self, cpf: str, nome: str, celular: str, enviar_link: bool = True) -> CreditOffer:
         """
         Executa o fluxo completo de CPT e retorna uma Oferta Padronizada.
         """
         logger.info(f"💼 [Global CLT] Consultando oportunidade para {cpf}")
 
-        resultado_raw = self.facta_service.simular_clt(cpf, nome, celular)
+        resultado_raw = self.facta_service.simular_clt(cpf, nome, celular, enviar_link_se_necessario=enviar_link)
 
         aprovado = resultado_raw.get("aprovado")
         motivo = resultado_raw.get("motivo")
@@ -31,6 +31,13 @@ class CLTService:
             return CreditOffer(
                 status=AnalysisStatus.AGUARDANDO_AUTORIZACAO,
                 message_key="clt_termo_enviado",
+                raw_details=resultado_raw
+            )
+        
+        if motivo == "TERMO_AINDA_PENDENTE":
+            return CreditOffer(
+                status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
+                message_key="clt_termo_nao_identificado",
                 raw_details=resultado_raw
             )
         

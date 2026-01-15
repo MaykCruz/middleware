@@ -70,7 +70,7 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
         erro_handler.start_auto_distribution(chat_id)
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True)
-def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None):
+def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True):
     """
     Executa a lógica pesada de CLT e responde via Huggy.
     Suporta retry automático para status PROCESSAMENTO_PENDENTE.
@@ -83,7 +83,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         clt_service = CLTService()
         huggy = HuggyService()
 
-        oferta = clt_service.consultar_oportunidade(cpf, nome, celular)
+        oferta = clt_service.consultar_oportunidade(cpf, nome, celular, enviar_link=enviar_link)
 
         logger.info(f"📤 [Worker] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
 
@@ -109,6 +109,9 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
+            huggy.start_flow_wait_term(chat_id)
+        
+        elif oferta.status == AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO:
             huggy.start_flow_wait_term(chat_id)
         
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:

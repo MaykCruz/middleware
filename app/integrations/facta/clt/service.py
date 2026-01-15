@@ -12,7 +12,7 @@ class FactaCLTService:
     def __init__(self):
         self.client = FactaCLTAdapter()
     
-    def simular_clt(self, cpf: str, nome: str, celular: str) -> dict:
+    def simular_clt(self, cpf: str, nome: str, celular: str, enviar_link_se_necessario: bool = True) -> dict:
         """
         Fluxo Otimista:
         1. Tenta Consultar Dados.
@@ -30,6 +30,14 @@ class FactaCLTService:
             }
 
         if status_dados == "TERMO_EXPIRADO":
+            if not enviar_link_se_necessario:
+                logger.info(f"⏳ [CLT] Token expirado, mas envio de link desativado (Reconsulta).")
+                return {
+                    "aprovado": False,
+                    "motivo": "TERMO_AINDA_PENDENTE",
+                    "msg_tecnica": "Cliente informou que autorizou, mas API Facta ainda retorna termo expirado."
+                }
+
             logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
 
             resp_termo = self.client.solicitar_termo(cpf, nome, celular)
