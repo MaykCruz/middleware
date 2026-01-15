@@ -70,12 +70,34 @@ class CLTService:
             
         
             if motivo == "IDADE_INSUFICIENTE_FACTA":
-                idade = resultado_raw.get("idade")
-                if idade >= 18:
+                idade = int(resultado_raw.get("idade", 0))
+                sexo = resultado_raw.get("sexo", "")
+
+                sugestoes = []
+
+                # HUB: 18 a 50
+                if 18 <= idade <=50:
+                    sugestoes.append("HUB (18-50)")
+                
+                # Mercantil: 20 a 58
+                if 20 <= idade <= 58:
+                    sugestoes.append("Mercantil (20-58)")
+                
+                # C6: 21 a 60
+                if 21 <= idade <= 60:
+                    sugestoes.append("C6 (21-60)")
+                
+                # V8/Presença: 21 a 65
+                if 21 <= idade <= 65:
+                    sugestoes.append("V8/Presença (21-65)")
+                
+                if sugestoes:
+                    texto_sugestao = ", ".join(sugestoes)
+                    msg_final = f"Cliente ({sexo}, {idade} anos). Tente em: {texto_sugestao}"
                     return CreditOffer(
                         status=AnalysisStatus.IDADE_INSUFICIENTE_FACTA,
                         message_key="clt_nao_elegivel",
-                        raw_details=resultado_raw
+                        raw_details={**resultado_raw, "sugestao_bancos": msg_final}
                     )
                 else:
                     return CreditOffer(

@@ -7,7 +7,6 @@ from app.utils.formatters import parse_valor_monetario
 logger = logging.getLogger(__name__)
 
 class FactaCLTService:
-    MARGEM_COMPROMETIDA_FACTA = 0.90
 
     def __init__(self):
         self.client = FactaCLTAdapter()
@@ -135,10 +134,32 @@ class FactaCLTService:
             }
         
         politica = resp_politica["dados"]
+
         margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
-        parcela_maxima = round(margem * self.MARGEM_COMPROMETIDA_FACTA, 2)
+        salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
+
+        fator_comprometimento = self._definir_fator_margem(salario)
+
+        parcela_maxima = round(margem * fator_comprometimento, 2)
+
+        logger.debug(f"💰 [CLT] Salário: {salario} | Fator: {fator_comprometimento} | Margem Líq: {margem} -> Comprometida: {parcela_maxima}")
 
         return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima)
+    
+    def _definir_fator_margem(self, salario: float) -> float:
+        """
+        Define a porcentagem da margem que pode ser utilizada baseada no salário.
+        Regra:
+        - Até 5.000: 97%
+        - Entre 5.000 e 7.350: 90%
+        - Acima de 7.350: 80%
+        """
+        if salario <= 5000.00:
+            return 0.97
+        elif salario <= 7350.00:
+            return 0.90
+        else:
+            return 0.80
         
     def _validar_regras_basicas(self, dados: dict) -> dict:
 
@@ -147,12 +168,32 @@ class FactaCLTService:
             return {"ok": False, "motivo": "CATEGORIA_CNAE_INVALIDA", "msg": "Categoria do trabalhador inválida.", "categoria": categoria}
         
         idade = self._calcular_idade(dados.get("dataNascimento"))
-        if idade < 21:
-            return {"ok": False, "motivo": "IDADE_INSUFICIENTE_FACTA", "msg": f"Idade {idade} anos (Mínimo Facta: 21)", "idade": idade}
+        cod_sexo = str(dados.get("sexo_codigo", ""))
+
+        sexo = "F" if cod_sexo == "3" else "M"
+
+        aprovado_idade = False
+
+        if sexo == "F":
+            if 21 <= idade <= 57:
+                aprovado_idade = True
         
+        else:
+            if 21 <= idade <= 62:
+                aprovado_idade = True
+        
+        if not aprovado_idade:
+            return {
+                "ok": False,
+                "motivo": "IDADE_INSUFICIENTE_FACTA", 
+                "msg": f"Idade {idade} ({sexo}) fora da política Facta.", 
+                "idade": idade,
+                "sexo": sexo
+            }
+                
         margem = parse_valor_monetario(dados.get("valorMargemDisponivel", 0))
-        if margem <= 0:
-            return {"ok": False, "motivo": "SEM_MARGEM", "msg": "Margem zerada", "margem": margem}
+        if margem <= 50:
+            return {"ok": False, "motivo": "SEM_MARGEM", "msg": f"Margem insuficiente: R$ {margem} (Mínimo R$ 50,01)", "margem": margem}
         
         return {"ok": True}
     
@@ -167,8 +208,12 @@ class FactaCLTService:
             return {"aprovado": False, "motivo": "SEM_OPERACOES", "msg_tecnica": resp.get("msg_original")}
         
         tabelas = resp["dados"].get("tabelas", [])
-        prazo_politica = int(politica.get("prazo_maximo_disponivel", 0))
-        teto_politica = float(politica.get("valor_maximo_disponivel", 0))
+
+        try:
+            prazo_politica = int(politica.get("prazo_maximo_disponivel", 0))
+            teto_politica = float(politica.get("valor_maximo_disponivel", 0))
+        except ValueError:
+            return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Erro na leitura dos valores da política."}
 
         tabelas_no_prazo = [t for t in tabelas if t.get("prazo") == prazo_politica]
 

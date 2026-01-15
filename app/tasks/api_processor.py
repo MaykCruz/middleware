@@ -125,9 +125,10 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE_FACTA:
             idade = oferta.raw_details.get("idade")
+            sugestao = oferta.raw_details.get("sugestao_bancos", "Verificar outros bancos.")
             huggy.send_message(chat_id=chat_id,
             message_key="idade_insuficiente_facta",
-            variables={"idade": idade},
+            variables={"sugestao": sugestao},
             force_internal=True)
             huggy.start_auto_distribution(chat_id)
         
@@ -139,10 +140,10 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
         
         elif oferta.status == AnalysisStatus.SEM_MARGEM:
-            margem = oferta.raw_details.get("margem")
+            msg = oferta.raw_details.get("msg_tecnica")
             huggy.send_message(chat_id=chat_id,
-            message_key="sem_margem",
-            variables={"margem": formatar_moeda(margem)},
+            message_key="blank",
+            variables={"blank": msg},
             force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("SEM_MARGEM_CLT"))
         
