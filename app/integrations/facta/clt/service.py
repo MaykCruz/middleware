@@ -171,14 +171,25 @@ class FactaCLTService:
             return 0.80
         
     def _validar_regras_basicas(self, dados: dict) -> dict:
-
         elegivel = str(dados.get("elegivel", "")).upper()
-
         if elegivel != "SIM":
             return {
                 "ok": False,
                 "motivo": "NAO_ELEGIVEL",
                 "msg": f"Cliente marcado como não elegível na base Facta (Elegível: {elegivel})."
+            }
+        
+        try:
+            qtd_contratos = int(dados.get("qtdEmprestimosAtivosSuspensos", 0))
+        except ValueError:
+            qtd_contratos = 0
+        
+        if qtd_contratos >= 9:
+            return {
+                "ok": False,
+                "motivo": "LIMITE_CONTRATOS",
+                "msg": f"Limite de contratos excedido: {qtd_contratos} ativos (Máx: 9).",
+                "qtd_contratos": qtd_contratos
             }
 
         categoria = dados.get("codigoCategoriaTrabalhador")

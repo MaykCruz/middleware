@@ -134,6 +134,15 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
+            if motivo == "LIMITE_CONTRATOS":
+                qtd = resultado_raw.get("qtd_contratos", 9)
+                return CreditOffer(
+                    status=AnalysisStatus.LIMITE_CONTRATOS,
+                    message_key="clt_limite_contratos",
+                    variables={"qtd": str(qtd)},
+                    raw_details=resultado_raw
+                )
+            
             if motivo == "MENOS_SEIS_MESES":
                 return CreditOffer(
                     status=AnalysisStatus.MENOS_SEIS_MESES,
