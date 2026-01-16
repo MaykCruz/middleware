@@ -112,7 +112,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_flow_wait_term(chat_id)
         
         elif oferta.status == AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO:
-            huggy.start_flow_wait_term(chat_id)
+            huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
             huggy.start_auto_distribution(chat_id)
