@@ -127,6 +127,7 @@ class FactaCLTService:
             if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
                 data_admissao = trabalhador.get("dataAdmissao")
                 tempo_trabalho = self._calcular_meses(data_admissao)
+                texto_admissao = self._formatar_display_tempo(data_admissao)
 
                 logger.info(f"🧐 [CLT] Reprovado Facta. Tempo de casa: {tempo_trabalho} meses.")
 
@@ -136,6 +137,34 @@ class FactaCLTService:
                         "motivo": "MENOS_SEIS_MESES",
                         "msg_tecnica": "Tempo de trabalho inferior a 6 meses."
                     }
+                
+                data_inicio_empresa = trabalhador.get("dataInicioAtividadeEmpregador")
+                tempo_empresa_meses = self._calcular_meses(data_inicio_empresa)
+
+                logger.info(f"🏢 [CLT] Empresa iniciou em {data_inicio_empresa} ({tempo_empresa_meses} meses).")
+
+                if tempo_empresa_meses <= 22:
+                    return {
+                        "aprovado": False,
+                        "motivo": "EMPRESA_RECENTE",
+                        "msg_tecnica": f"Empresa empregadora com apenas {tempo_empresa_meses} meses de atividade (Mínimo exigido pelos bancos: 24+)." 
+                    }
+                
+                margem_disp = parse_valor_monetario(trabalhador.get("valorMargemDisponivel", 0))
+                msg_base = resp_politica.get("msg_original", "Reprovado na política de crédito Facta.")
+
+                msg_enriquecida = (
+                    f"{msg_base}\n"
+                    f"📊 *Dados para análise:*\n"
+                    f"• Margem: R$ {margem_disp:.2f}\n"
+                    f"• Admissão: {texto_admissao}"
+                )
+
+                return {
+                    "aprovado": False,
+                    "motivo": resp_politica["status"],
+                    "msg_tecnica": msg_enriquecida
+                }
                 
             return {
                 "aprovado": False,
@@ -357,6 +386,37 @@ class FactaCLTService:
         except Exception as e:
             logger.error(f"Erro ao calcular meses: {e}")
             return 0
+    
+    def _formatar_display_tempo(self, data_str: str) -> str:
+        """
+        Retorna string formatada ex: Retorna string formatada ex: "16/01/2023 (3 anos)" ou "08/08/2025 (5 meses)"
+        """
+        if not data_str: return "Data n/d"
+        try:
+            dt_adm = datetime.strptime(data_str, "%d/%m/%Y")
+            dt_hoje = datetime.now()
+            diff = relativedelta(dt_hoje, dt_adm)
+
+            partes = []
+
+            if diff.years > 0:
+                s_ano = "anos" if diff.years > 1 else "ano"
+                partes.append(f"{diff.years} {s_ano}")
+
+                if diff.months > 0:
+                    s_mes = "meses" if diff.months > 1 else "mês"
+                    partes.append(f"e {diff.months} {s_mes}")
+                
+                else:
+                    s_mes = "meses" if diff.months > 1 else "mês"
+                    qtd = max(diff.months, 0)
+                    partes.append(f"{qtd} {s_mes}")
+                
+                texto_tempo = " ".join(partes)
+                return f"{data_str} ({texto_tempo})"
+        
+        except Exception:
+            return data_str
 
 
 

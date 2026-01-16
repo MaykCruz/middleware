@@ -33,7 +33,8 @@ class HuggyService:
             "SEM_SALDO": os.getenv("HUGGY_SEM_SALD0"),
             "SEM_INTERESSE": os.getenv("HUGGY_SEM_INTERESSE"),
             "CLT_RECUSA_DEFINITIVA": os.getenv("HUGGY_CLT_RECUSA_DEFINITIVA"),
-            "SEM_MARGEM_CLT": os.getenv("HUGGY_TABULATION_SEM_MARGEM_CLT")
+            "SEM_MARGEM_CLT": os.getenv("HUGGY_TABULATION_SEM_MARGEM_CLT"),
+            "CELETISTA_RESTRICAO": os.getenv("HUGGY_CELETISTA_RESTRICAO"),
         }
 
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:

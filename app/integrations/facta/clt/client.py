@@ -118,9 +118,14 @@ class FactaCLTAdapter:
                 def tem_valor_disponivel(dado):
                     val = dado.get("valor_maximo_disponivel")
                     try:
-                        return val is not None and float(val) > 0
+                        tem_valor = val is not None and float(val) > 0
                     except (ValueError, TypeError):
-                        return False
+                        tem_valor = False
+                    
+                    prazo = dado.get("prazo_maximo_disponivel")
+                    tem_prazo = prazo is not None
+
+                    return tem_valor and tem_prazo
 
                 if data.get("erro") is True:
                     status = "ERRO_TECNICO"

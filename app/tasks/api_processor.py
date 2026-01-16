@@ -192,6 +192,14 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             variables={"blank": msg_tecnica},
             force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("MENOS_SEIS_MESES"))
+        
+        elif oferta.status == AnalysisStatus.EMPRESA_RECENTE:
+            msg_tecnica = oferta.raw_details.get("msg_tecnica")
+            huggy.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
+            huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CELETISTA_RESTRICAO"))
 
         elif oferta.status == AnalysisStatus.SEM_OFERTA:
             huggy.send_message(chat_id=chat_id,

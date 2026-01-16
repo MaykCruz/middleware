@@ -134,6 +134,13 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
+            if motivo == "EMPRESA_RECENTE":
+                return CreditOffer(
+                    status=AnalysisStatus.EMPRESA_RECENTE,
+                    message_key="clt_recusa_definitiva",
+                    raw_details=resultado_raw
+                )
+            
             if motivo == "LIMITE_CONTRATOS":
                 qtd = resultado_raw.get("qtd_contratos", 9)
                 return CreditOffer(
