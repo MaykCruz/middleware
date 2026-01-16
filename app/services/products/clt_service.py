@@ -120,7 +120,7 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
-            if motivo == "CATEGORIA_INVALIDA":
+            if motivo == "CATEGORIA_CNAE_INVALIDA":
                 return CreditOffer(
                     status=AnalysisStatus.CATEGORIA_CNAE_INVALIDA,
                     message_key="clt_recusa_definitiva",
