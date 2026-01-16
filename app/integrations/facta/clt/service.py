@@ -105,6 +105,8 @@ class FactaCLTService:
                 "msg_tecnica": "Matrícula funcional não localizada nos dados do trabalhador."
             }
         
+        margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
+        
         resp_politica = self.client.validar_politica_credito(
             cpf,
             matricula=trabalhador.get("matricula", ""),
@@ -113,6 +115,14 @@ class FactaCLTService:
         )
 
         if resp_politica["status"] != "SUCESSO":
+
+            if margem <= 50.00:
+                logger.info(f"🚫 [CLT] Reprovado Política Facta e margem baixa ({margem}). Encerrando.")
+                return {
+                    "aprovado": False,
+                    "motivo": "SEM_MARGEM",
+                    "msg_tecnica": f"Reprovado na política Facta e margem R$ {margem} insuficiente para outros bancos."
+                }
 
             if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
                 data_admissao = trabalhador.get("dataAdmissao")
@@ -135,7 +145,6 @@ class FactaCLTService:
         
         politica = resp_politica["dados"]
 
-        margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
         salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
 
         fator_comprometimento = self._definir_fator_margem(salario)
