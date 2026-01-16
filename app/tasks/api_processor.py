@@ -1,5 +1,5 @@
 import logging
-from celery.exceptions import MaxRetriesExceededError
+from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
 from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
@@ -214,11 +214,13 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         timeout_handler.send_message(
             chat_id=chat_id,
             message_key="blank",
-            variables={"blank": msg_tecnica},
+            variables={"blank": "Limite de tentativas de processamento excedido."},
             force_internal=True)
         timeout_handler.start_auto_distribution(chat_id)
 
     except Exception as e:
+        if isinstance(e, Retry):
+            raise e  # Re-raise Retry exceptions to let Celery handle them
         logger.error(f"💥 [Worker CLT] Erro crítico: {e}", exc_info=True)
         erro_handler = HuggyService()
         erro_handler.send_message(
