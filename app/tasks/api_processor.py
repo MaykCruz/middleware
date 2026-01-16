@@ -146,6 +146,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE:
+            idade = oferta.raw_details.get("idade")
             huggy.send_message(chat_id=chat_id,
             message_key="idade_insuficiente",
             variables={"idade": idade},
