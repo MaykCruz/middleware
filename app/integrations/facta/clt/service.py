@@ -403,17 +403,17 @@ class FactaCLTService:
                 s_ano = "anos" if diff.years > 1 else "ano"
                 partes.append(f"{diff.years} {s_ano}")
 
-                if diff.months > 0:
-                    s_mes = "meses" if diff.months > 1 else "mês"
-                    partes.append(f"e {diff.months} {s_mes}")
-                
-                else:
-                    s_mes = "meses" if diff.months > 1 else "mês"
-                    qtd = max(diff.months, 0)
-                    partes.append(f"{qtd} {s_mes}")
-                
-                texto_tempo = " ".join(partes)
-                return f"{data_str} ({texto_tempo})"
+            if diff.months > 0:
+                s_mes = "meses" if diff.months > 1 else "mês"
+                partes.append(f"{diff.months} {s_mes}")
+            
+            if not partes:
+                texto_tempo = "menos de 1 mês"
+            
+            else:
+                texto_tempo = " e ".join(partes)
+            
+            return f"{data_str} ({texto_tempo})"
         
         except Exception:
             return data_str
