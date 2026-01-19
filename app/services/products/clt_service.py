@@ -71,7 +71,7 @@ class CLTService:
             if motivo == "NAO_ELEGIVEL":
                 return CreditOffer(
                     status=AnalysisStatus.NAO_ELEGIVEL,
-                    message_key="clt_nao_elegivel",
+                    message_key="clt_recusa_definitiva",
                     raw_details=resultado_raw
                 )
             
