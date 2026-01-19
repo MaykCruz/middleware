@@ -25,7 +25,12 @@ async def iniciar_simulacao_fgts(
     cpf_limpo = clean_digits(request.cpf)
 
     if not validate_cpf(cpf_limpo):
-        logger.info(f"🚫 [API] CPF Inválido recebido: {request.cpf}")
+        logger.info(
+            f"🚫 [API] CPF Inválido recebido: {request.cpf} | "
+            f"Chat: {request.chat_id} | "
+            f"Nome: {request.nome} | "
+            f"Contact ID: {request.contact_id}"
+        )
 
         return {
             "status": "erro",
@@ -36,7 +41,11 @@ async def iniciar_simulacao_fgts(
     telefone_formatado = formatar_telefone_br(request.celular)
 
     if not telefone_formatado:
-        logger.info(f"🚫 [API] Telefone Inválido recebido: {request.celular}")
+        logger.info(f"🚫 [API] Telefone Inválido recebido: {request.celular}| "
+            f"Chat: {request.chat_id} | "
+            f"Nome: {request.nome} | "
+            f"Contact ID: {request.contact_id}"
+        )
         
         return {
             "status": "erro",
