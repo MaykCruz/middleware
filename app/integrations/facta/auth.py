@@ -38,25 +38,34 @@ class FactaAuth:
         Retorna um token Bearer válido.
         Usa estratégia de Cache-First com Lock Distribuido para renovação.
         """
-        token = self.token_manager.get_token(self.SCOPE)
-        if token:
-            return token
-        
-        if self.token_manager.acquire_lock(self.SCOPE):
+        max_tentativas = 5
+
+        for tentativa in range(1, max_tentativas + 1):
             try:
-               logger.info("🔑 [FACTA] Iniciando renovação de token na API...")
-               new_token = self._request_api_token()
-               self.token_manager.save_token(self.SCOPE, new_token, 3500)
-               return new_token
+                token = self.token_manager.get_token(self.SCOPE)
+                if token:
+                    return token
             except Exception as e:
-                self.token_manager.release_lock(self.SCOPE)
-                logger.exception(f"❌ [FACTA] Falha crítica na renovação: {str(e)}")
-                raise e
+                logger.warning(f"⚠️ [FactaAuth] Erro ao ler cache (Tentativa {tentativa}): {e}")
         
-        else:
-            logger.info("⏳ [FACTA] Aguardando renovação por outro worker...")
-            time.sleep(2)
-            return self.get_valid_token()
+            if self.token_manager.acquire_lock(self.SCOPE):
+                try:
+                    logger.info("🔑 [FACTA] Iniciando renovação de token na API...")
+                    new_token = self._request_api_token()
+                    self.token_manager.save_token(self.SCOPE, new_token, 3500)
+                    return new_token
+                except Exception as e:
+                    self.token_manager.release_lock(self.SCOPE)
+                    logger.exception(f"❌ [FACTA] Falha crítica na renovação: {str(e)}")
+                    raise e
+            else:
+                if tentativa < max_tentativas:
+                    logger.info(f"⏳ [FACTA] Aguardando renovação (Tentativa {tentativa}/{max_tentativas})...")
+                    time.sleep(2)
+                else:
+                    logger.error("⏰ [FACTA] Timeout aguardando lock de autenticação.")
+                    
+        raise TimeoutError("Falha crítica: Não foi possível obter token da Facta após múltiplas tentativas.")
         
     def _request_api_token(self) -> str:
         """

@@ -71,6 +71,7 @@ class FactaCLTAdapter:
 
         try:
             with create_client() as client:
+                logger.info(f"🔍 [Facta CLT] Iniciando consulta de dados para {cpf}...")
                 resp = client.get(url, headers=self._get_headers, params=params)
                 data = resp.json()
 

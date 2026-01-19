@@ -18,7 +18,7 @@ class TokenManager:
             redis_url = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
             try:
-                cls._instance.redis = redis.from_url(redis_url, decode_responses=True)
+                cls._instance.redis = redis.from_url(redis_url, decode_responses=True, socket_timeout=5.0, socket_connect_timeout=5.0)
                 logger.info("🔐 [TokenManager] Conectado ao Redis com sucesso.")
             except Exception as e:
                 logger.critical(f"❌ [TokenManager] Falha crítica ao conectar no Redis: {e}")
