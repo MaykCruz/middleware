@@ -80,10 +80,10 @@ class HuggyClient:
                 return True
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"❌ Erro HTTP Huggy ({e.response.status_code}): {e.response.text}")
+            logger.error(f"❌ Erro HTTP Huggy no Chat {chat_id} ({e.response.status_code}): {e.response.text}")
             raise e
         except Exception as e:
-            logger.error(f"❌ Erro conexão Huggy: {str(e)}")
+            logger.error(f"❌ Erro conexão Huggy no Chat {chat_id}: {str(e)}")
             raise e
     
     def trigger_flow(self, chat_id: int, flow_id: int, variables: Dict[str, Any] = None) -> bool:
@@ -110,7 +110,7 @@ class HuggyClient:
                 
                 # 404/400 - Erros comuns
                 elif response.status_code in [400, 404]:
-                    logger.warning(f"⚠️ [Huggy] Falha ao disparar Flow {flow_id}: {response.text}")
+                    logger.warning(f"⚠️ [Huggy] Falha ao disparar Flow {flow_id} (Chat {chat_id}): {response.text}")
                     return False
                 
                 else:
@@ -118,10 +118,10 @@ class HuggyClient:
                     return False # Nunca chega aqui, mas agrada o linter
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"❌ Erro HTTP Huggy ao disparar flow: {e.response.text}")
+            logger.error(f"❌ Erro HTTP Huggy ao disparar flow no Chat {chat_id}: {e.response.text}")
             return False # Aqui retornamos False para o Engine decidir o que fazer (ex: tentar outro método)
         except Exception as e:
-            logger.error(f"❌ Erro conexão Huggy: {str(e)}")
+            logger.error(f"❌ Erro conexão Huggy no Chat {chat_id}: {str(e)}")
             return False
 
     def update_workflow_step(self, chat_id: int, step_id: Union[int, str]) -> bool:
@@ -145,12 +145,12 @@ class HuggyClient:
                     logger.info(f"✅ [Huggy] Sucesso ao {action_name} (Chat {chat_id}).")
                     return True
                 elif response.status_code == 404:
-                    logger.warning(f"❌ [Huggy] Falha ao {action_name}: {response.status_code} - Etapa informada não existe.")
+                    logger.warning(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - Etapa informada não existe.")
                 else:
-                    logger.error(f"❌ [Huggy] Falha ao {action_name}: {response.status_code} - {response.text}")
+                    logger.error(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - {response.text}")
                     return False
         except Exception as e:
-            logger.error(f"❌ Erro de conexão Huggy: {str(e)}")
+            logger.error(f"❌ Erro de conexão Huggy ao {action_name} (Chat {chat_id}): {str(e)}")
             return False
     
     def close_chat(self, chat_id: int, tabulation_id: Union[int, str] = None, comment: str = None, send_feedback: bool = False) -> bool:

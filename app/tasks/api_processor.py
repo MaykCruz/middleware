@@ -227,7 +227,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_auto_distribution(chat_id)
     
     except MaxRetriesExceededError:
-        logger.error(f"⏰ [Worker CLT] Timeout: Limite de tentativas excedido para {cpf}")
+        logger.info(f"⏰ [Worker CLT] Timeout: Limite de tentativas excedido para {cpf}")
         try:
             timeout_handler = HuggyService()
             timeout_handler.send_message(
@@ -235,6 +235,10 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                 message_key="blank",
                 variables={"blank": "Limite de tentativas de processamento excedido."},
                 force_internal=True)
+            timeout_handler.send_message(
+                chat_id=chat_id,
+                message_key="clt_limite_tentativas"
+            )
         except Exception:
             pass
 
