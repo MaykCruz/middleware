@@ -42,10 +42,10 @@
         ]
     },
     "clt_oferta_disponivel": {
-        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nPara prosseguirmos com a liberação, basta enviar a sua chave Pix! 👇"
+        "text": "✅ Simulação pré-aprovada!\nValor *máximo* liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nPara prosseguirmos com a liberação, basta enviar a sua chave Pix! 👇"
     },
     "clt_oferta_disponivel_conta": {
-        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta nessa conta? 😉\n\n{dados_bancarios}",
+        "text": "✅ Simulação pré-aprovada!\nValor *máximo* liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta nessa conta? 😉\n\n{dados_bancarios}",
         "options": [
             {
                 "id": "1",
@@ -213,5 +213,11 @@
     },
     "clt_limite_contratos": {
         "text": "⚠️ *Limite de contratos atingido*\n\nVerifiquei aqui que você já possui **{qtd} empréstimos ativos** em sua matrícula, e o banco permite no máximo 9 contratos simultâneos.\n\nPor conta dessa regra normativa, o sistema não permitiu gerar uma nova simulação neste momento. 😕"
+    },
+    "clt_limite_tentativas": {
+        "text": "O sistema do banco está demorando um pouco mais que o normal para retornar a consulta. 🐢\n\nMas não se preocupe! Para você não ficar esperando, já chamei um de nossos especialistas para continuar seu atendimento manualmente. Em instantes alguém fala com você por aqui!"
+    },
+    "empregador_cpf": {
+        "text": "Poxa, analisei aqui e vi que seu registro em carteira está vinculado a um CPF (Pessoa Física). 😕\n\nPara essa linha de crédito, a regra dos bancos exige que o empregador seja uma empresa com CNPJ. Por conta disso, infelizmente não consigo seguir com a liberação para você neste momento."
     }
 }

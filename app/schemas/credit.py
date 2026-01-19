@@ -37,6 +37,7 @@ class AnalysisStatus(str, Enum):
     NAO_ELEGIVEL = "NAO_ELEGIVEL"
     LIMITE_CONTRATOS = "LIMITE_CONTRATOS"
     EMPRESA_RECENTE = "EMPRESA_RECENTE"
+    EMPREGADOR_CPF = "EMPREGADOR_CPF"
     
 
 class CreditOffer(BaseModel):

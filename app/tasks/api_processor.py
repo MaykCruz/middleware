@@ -146,6 +146,14 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             force_internal=True)
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
         
+        elif oferta.status == AnalysisStatus.EMPREGADOR_CPF:
+            msg = oferta.raw_details.get("msg_tecnica")
+            huggy.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
+            huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CLT_RECUSA_DEFINITIVA"))
+        
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE_FACTA:
             idade = oferta.raw_details.get("idade")
             sugestao = oferta.raw_details.get("sugestao_bancos", "Verificar outros bancos.")

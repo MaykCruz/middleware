@@ -75,6 +75,12 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
+            if motivo == "EMPREGADOR_CPF":
+                return CreditOffer(
+                    status=AnalysisStatus.EMPREGADOR_CPF,
+                    message_key="empregador_cpf",
+                    raw_details=resultado_raw
+                )
         
             if motivo == "IDADE_INSUFICIENTE_FACTA":
                 idade = int(resultado_raw.get("idade", 0))

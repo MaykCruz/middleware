@@ -207,6 +207,14 @@ class FactaCLTService:
                 "msg": f"Cliente marcado como não elegível na base Facta (Elegível: {elegivel})."
             }
         
+        tipo_empregador = str(dados.get("inscricaoEmpregador_descricao", "CNPJ")).upper().strip()
+        if tipo_empregador == "CPF":
+            return {
+                "ok": False,
+                "motivo": "EMPREGADOR_CPF",
+                "msg": "Empregador registrado como pessoa física (CPF), não permitido.",
+            }
+        
         try:
             qtd_contratos = int(dados.get("qtdEmprestimosAtivosSuspensos", 0))
         except ValueError:
