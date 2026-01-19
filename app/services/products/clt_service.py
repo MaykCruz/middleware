@@ -2,7 +2,7 @@ import logging
 from app.integrations.facta.clt.service import FactaCLTService
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 from app.schemas.credit import CreditOffer, AnalysisStatus
-from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto
+from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,22 @@ class CLTService:
                 idade = int(resultado_raw.get("idade", 0))
                 sexo = resultado_raw.get("sexo", "")
 
+                margem = float(resultado_raw.get("margem_disponivel", 0.0))
+                admissao = resultado_raw.get("data_admissao")
+                meses_casa = calcular_meses(admissao)
+
+                margem_minima_transbordo = 50.00
+
+                if margem <= margem_minima_transbordo:
+                    return CreditOffer(
+                        status=AnalysisStatus.SEM_MARGEM,
+                        message_key="sem_margem_cliente",
+                        raw_details={
+                            **resultado_raw,
+                            "msg_tecnica": f"Idade não enquadra Facta e margem baixa ({formatar_moeda(margem)}) para transbordo."
+                        }
+                    )
+
                 sugestoes = []
 
                 # HUB: 18 a 50
@@ -87,7 +103,7 @@ class CLTService:
                     sugestoes.append("HUB (18-50)")
                 
                 # Mercantil: 20 a 58
-                if 20 <= idade <= 58:
+                if 20 <= idade <= 58 and meses_casa >= 12:
                     sugestoes.append("Mercantil (20-58)")
                 
                 # C6: 21 a 60
@@ -100,7 +116,14 @@ class CLTService:
                 
                 if sugestoes:
                     texto_sugestao = ", ".join(sugestoes)
-                    msg_final = f"Cliente ({sexo}, {idade} anos). Tente em: {texto_sugestao}"
+
+                    msg_final = (
+                        f"Cliente: {sexo}, {idade} anos\n"
+                        f"💰 Margem: R$ {formatar_moeda(margem)}\n"
+                        f"📅 Admissão: {formatar_display_tempo(admissao)}\n"
+                        f"🏦 Tente em: {texto_sugestao}"
+                    )
+
                     return CreditOffer(
                         status=AnalysisStatus.IDADE_INSUFICIENTE_FACTA,
                         message_key="clt_nao_elegivel",

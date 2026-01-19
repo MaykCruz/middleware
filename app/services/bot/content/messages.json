@@ -42,7 +42,7 @@
         ]
     },
     "clt_oferta_disponivel": {
-        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta? 😉"
+        "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nPara prosseguirmos com a liberação, basta enviar a sua chave Pix! 👇"
     },
     "clt_oferta_disponivel_conta": {
         "text": "✅ Simulação pré-aprovada!\nValor máximo liberado: *R$ {valor}* 💸\nPrazo: {prazo} vezes de R$ {parcela} (desconto direto do salário a partir de {mes_desconto})\n\nVamos prosseguir com a proposta nessa conta? 😉\n\n{dados_bancarios}",
@@ -152,7 +152,13 @@
         "text": "Limite mensal de consultas FGTS excedido!\n\nO robô transferiu para atendimento humano."
     },
     "clt_termo_enviado": {
-        "text": "Oh, em instantes, chegará uma mensagem do Banco Facta no seu Whatsapp com um link para que você aceite os termos, só com essa autorização eu consigo consultar a margem e o valor liberado."
+        "text": "Prontinho! Acabei de solicitar o envio do link oficial do *Banco Facta* para o seu WhatsApp. 📱\n\nPara que eu consiga consultar sua margem e verificar o valor disponível:\n\n1. Abra a mensagem da Facta que vai chegar;\n2. Clique no link e aceite a autorização;\n3. Volte aqui e clique no botão abaixo. 👇",
+        "options": [
+            {
+                "id": "9",
+                "title": "Pronto, autorizei! ✅"
+            }
+        ]
     },
     "clt_telefone_ja_vinculado": {
         "text": "Não foi possível enviar o termo ao cliente, telefone já está vinculado a outro CPF."
@@ -161,10 +167,10 @@
         "text": "CPF do cliente não encontrado na base."
     },
     "clt_recusa_definitiva": {
-        "text": "Infelizmente não será possível a liberação do Consignado CLT devido aos critérios de crédito dos bancos!\n\nPode ser que você já tenha comprometido a sua margem para empréstimo pessoal, ou apenas não passou na análise de crédito no CPF ou do CNPJ da empresa!\n\nInfelizmente não possuímos mais informações sobre o motivo da restrição."
+        "text": "Infelizmente não será possível a liberação do Consignado CLT devido aos critérios do banco!\n\nNão temos informações sobre o motivo da recusa.\n\nFicamos à disposição para novas consultas!\n\nAgradecemos o contato!"
     },
     "clt_nao_elegivel": {
-        "mensagem": "Infelizmente pela FACTA FINANCEIRA não será possível a liberação do Consignado CLT devido aos critérios de crédito do banco!\n\nMas não se preocupe temos outras opções para simulação, possa ser que demore um pouquinho porque vou simular em todos e te informo por aqui\n\nDesde já agradeço pela atenção!"
+        "text": "Infelizmente pela FACTA FINANCEIRA não será possível a liberação do Consignado CLT devido aos critérios de crédito do banco!\n\nMas não se preocupe temos outras opções para simulação, possa ser que demore um pouquinho porque vou simular em todos e te informo por aqui\n\nDesde já agradeço pela atenção!"
     },
     "clt_virada_folha_cliente": {
         "text": "O Empréstimo CLT está em período de maciça (fechamento de folha), quando retornar conseguimos prosseguir com a simulação.\n\nGostaria de consultar o saldo do FGTS?"
@@ -173,7 +179,7 @@
         "text": "O Empréstimo CLT está em período de maciça (fechamento de folha)."
     },
     "idade_insuficiente_facta": {
-        "text": "Cliente possui {idade} anos, não enquadra Facta (mínimo 21 anos). Enquadra Mercantil e Hub!"
+        "text": "🚫 Recusa Facta: Idade/Política.\n\n📊 Análise de Enquadramento:\n{sugestao}\n\nAutodistribuindo atendimento!"
     },
     "idade_insuficiente": {
         "text": "Cliente possui {idade} anos, não enquadra em nenhum banco."
@@ -189,5 +195,23 @@
     },
     "blank": {
         "text": "{blank}"
+    },
+    "menos_seis_meses": {
+        "text": "Infelizmente não será possível a liberação do Consignado CLT, pois para a contratação é preciso ter, pelo menos, 6 meses de registro em carteira no emprego atual!"
+    },
+    "clt_termo_nao_identificado": {
+        "text": "Ainda não identifiquei a autorização no sistema da Facta. 😕\n\nÀs vezes demora alguns segundos para processar.\n\n1. Verifique se concluiu o aceite no link do SMS/WhatsApp.\n2. Aguarde uns instantes e clique abaixo novamente.",
+        "options": [
+            {
+                "id": "2",
+                "title": "Já autorizei ✅"
+            }
+        ]
+    },
+    "sem_margem_cliente": {
+        "text": "Infelizmente não será possível a liberação do Consignado CLT, pois não possui margem disponível para contratação!\n\n*Vale lembrar* que a margem só irá aumentar caso termine de pagar o consignado que já tem ativo ou tenha um aumento no seu salário!\n\nAgradecemos o contato!"
+    },
+    "clt_limite_contratos": {
+        "text": "⚠️ *Limite de contratos atingido*\n\nVerifiquei aqui que você já possui **{qtd} empréstimos ativos** em sua matrícula, e o banco permite no máximo 9 contratos simultâneos.\n\nPor conta dessa regra normativa, o sistema não permitiu gerar uma nova simulação neste momento. 😕"
     }
 }

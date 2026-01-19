@@ -1,8 +1,7 @@
 import logging
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 from app.integrations.facta.clt.client import FactaCLTAdapter
-from app.utils.formatters import parse_valor_monetario
+from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +125,8 @@ class FactaCLTService:
 
             if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
                 data_admissao = trabalhador.get("dataAdmissao")
-                tempo_trabalho = self._calcular_meses(data_admissao)
-                texto_admissao = self._formatar_display_tempo(data_admissao)
+                tempo_trabalho = calcular_meses(data_admissao)
+                texto_admissao = formatar_display_tempo(data_admissao)
 
                 logger.info(f"🧐 [CLT] Reprovado Facta. Tempo de casa: {tempo_trabalho} meses.")
 
@@ -139,7 +138,7 @@ class FactaCLTService:
                     }
                 
                 data_inicio_empresa = trabalhador.get("dataInicioAtividadeEmpregador")
-                tempo_empresa_meses = self._calcular_meses(data_inicio_empresa)
+                tempo_empresa_meses = calcular_meses(data_inicio_empresa)
 
                 logger.info(f"🏢 [CLT] Empresa iniciou em {data_inicio_empresa} ({tempo_empresa_meses} meses).")
 
@@ -225,9 +224,11 @@ class FactaCLTService:
         if categoria not in ["101", "102"]:
             return {"ok": False, "motivo": "CATEGORIA_CNAE_INVALIDA", "msg": "Categoria do trabalhador inválida.", "categoria": categoria}
         
+        margem = parse_valor_monetario(dados.get("valorMargemDisponivel", 0))
+        admissao = dados.get("dataAdmissao")
+
         idade = self._calcular_idade(dados.get("dataNascimento"))
         cod_sexo = str(dados.get("sexo_codigo", ""))
-
         sexo = "F" if cod_sexo == "3" else "M"
 
         aprovado_idade = False
@@ -246,10 +247,10 @@ class FactaCLTService:
                 "motivo": "IDADE_INSUFICIENTE_FACTA", 
                 "msg": f"Idade {idade} ({sexo}) fora da política Facta.", 
                 "idade": idade,
-                "sexo": sexo
+                "sexo": sexo,
+                "margem_disponivel": margem,
+                "data_admissao": admissao
             }
-                
-        margem = parse_valor_monetario(dados.get("valorMargemDisponivel", 0))
 
         if margem <= 20.00:
             return {"ok": False, "motivo": "SEM_MARGEM", "msg": f"Margem insuficiente: R$ {margem} (Mínimo R$ 20,01)", "margem": margem}
@@ -374,50 +375,3 @@ class FactaCLTService:
             d = datetime.strptime(data_str, "%d/%m/%Y")
             return (datetime.today() -d).days // 365
         except: return 0
-    
-    def _calcular_meses(self, data_str):
-        if not data_str: return 0
-        try:
-            data_admissao = datetime.strptime(data_str, "%d/%m/%Y")
-            data_atual = datetime.now()
-            diferenca = relativedelta(data_atual, data_admissao)
-            meses_completos = diferenca.years * 12 + diferenca.months
-            return max(0, meses_completos)
-        except Exception as e:
-            logger.error(f"Erro ao calcular meses: {e}")
-            return 0
-    
-    def _formatar_display_tempo(self, data_str: str) -> str:
-        """
-        Retorna string formatada ex: Retorna string formatada ex: "16/01/2023 (3 anos)" ou "08/08/2025 (5 meses)"
-        """
-        if not data_str: return "Data n/d"
-        try:
-            dt_adm = datetime.strptime(data_str, "%d/%m/%Y")
-            dt_hoje = datetime.now()
-            diff = relativedelta(dt_hoje, dt_adm)
-
-            partes = []
-
-            if diff.years > 0:
-                s_ano = "anos" if diff.years > 1 else "ano"
-                partes.append(f"{diff.years} {s_ano}")
-
-            if diff.months > 0:
-                s_mes = "meses" if diff.months > 1 else "mês"
-                partes.append(f"{diff.months} {s_mes}")
-            
-            if not partes:
-                texto_tempo = "menos de 1 mês"
-            
-            else:
-                texto_tempo = " e ".join(partes)
-            
-            return f"{data_str} ({texto_tempo})"
-        
-        except Exception:
-            return data_str
-
-
-
-    

@@ -62,3 +62,45 @@ def limpar_nome(nome: str) -> str:
         return "nao informado"
     
     return re.sub(r'[^a-zA-ZÀ-ÿ\s]', '', str(nome)).strip()
+
+def formatar_display_tempo(data_str: str) -> str:
+    """
+    Retorna string formatada ex: Retorna string formatada ex: "16/01/2023 (3 anos)" ou "08/08/2025 (5 meses)"
+    """
+    if not data_str: return "Data n/d"
+    try:
+        dt_adm = datetime.strptime(data_str, "%d/%m/%Y")
+        dt_hoje = datetime.now()
+        diff = relativedelta(dt_hoje, dt_adm)
+
+        partes = []
+
+        if diff.years > 0:
+            s_ano = "anos" if diff.years > 1 else "ano"
+            partes.append(f"{diff.years} {s_ano}")
+
+        if diff.months > 0:
+            s_mes = "meses" if diff.months > 1 else "mês"
+            partes.append(f"{diff.months} {s_mes}")
+        
+        if not partes:
+            texto_tempo = "menos de 1 mês"
+        
+        else:
+            texto_tempo = " e ".join(partes)
+        
+        return f"{data_str} ({texto_tempo})"
+    
+    except Exception:
+        return data_str
+
+def calcular_meses(data_str):
+    if not data_str: return 0
+    try:
+        data_admissao = datetime.strptime(data_str, "%d/%m/%Y")
+        data_atual = datetime.now()
+        diferenca = relativedelta(data_atual, data_admissao)
+        meses_completos = diferenca.years * 12 + diferenca.months
+        return max(0, meses_completos)
+    except Exception:
+        return 0
