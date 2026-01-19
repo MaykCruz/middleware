@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -52,3 +53,12 @@ def obter_mes_inicio_desconto() -> str:
     }
     
     return meses_pt[data_futura.month]
+
+def limpar_nome(nome: str) -> str:
+    """
+    Remove emojis, símbolos e caracteres especiais, mantendo apenas letras e espaços.
+    """
+    if not nome:
+        return "nao informado"
+    
+    return re.sub(r'[^a-zA-ZÀ-ÿ\s]', '', str(nome)).strip()

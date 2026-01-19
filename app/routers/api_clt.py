@@ -3,6 +3,7 @@ from fastapi import APIRouter, Header
 from pydantic import BaseModel, Field
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
+from app.utils.formatters import limpar_nome
 from app.services.bot.memory.session import SessionManager
 
 router = APIRouter(prefix="/api/clt", tags=["API CLT"])
@@ -47,8 +48,11 @@ async def iniciar_simulacao_clt(
             "message": "Telefone inválido. Informe DDD + Número."
         }
     
+    nome_limpo = limpar_nome(request.nome)
+    
     request.cpf = cpf_limpo
     request.celular = telefone_formatado
+    request.nome = nome_limpo
 
     logger.info(f"🚀 [API CLT] Recebida solicitação para {request.cpf}")
 

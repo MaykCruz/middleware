@@ -9,6 +9,10 @@ from app.utils.formatters import formatar_moeda
 
 logger = logging.getLogger(__name__)
 
+def _safe_error_string(e: Exception) -> str:
+    err_msg = str(e)
+    return err_msg[:200]
+
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts", acks_late=True)
 def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
     """
@@ -61,13 +65,19 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
     
     except Exception as e:
         logger.error(f"💥 [Worker FGTS] Erro crítico: {e}", exc_info=True)
-        erro_handler = HuggyService()
-        erro_handler.send_message(
-            chat_id=chat_id,
-            message_key="retorno_desconhecido",
-            variables={"erro": str(e)},
-            force_internal=True)
-        erro_handler.start_auto_distribution(chat_id)
+        try:
+            erro_handler = HuggyService()
+            erro_handler.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_err:
+            logger.error(f"⚠️ Falha ao enviar mensagem de erro para o Huggy: {send_err}")
+        try:
+            HuggyService().start_auto_distribution(chat_id)
+        except Exception as dist_err:
+            logger.critical(f"☠️ FALHA TOTAL: Não foi possível transbordar Chat {chat_id}: {dist_err}")
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True)
 def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True):
@@ -218,23 +228,34 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
     
     except MaxRetriesExceededError:
         logger.error(f"⏰ [Worker CLT] Timeout: Limite de tentativas excedido para {cpf}")
-        timeout_handler = HuggyService()
-        timeout_handler.send_message(
-            chat_id=chat_id,
-            message_key="blank",
-            variables={"blank": "Limite de tentativas de processamento excedido."},
-            force_internal=True)
-        timeout_handler.start_auto_distribution(chat_id)
+        try:
+            timeout_handler = HuggyService()
+            timeout_handler.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "Limite de tentativas de processamento excedido."},
+                force_internal=True)
+        except Exception:
+            pass
+
+        HuggyService().start_auto_distribution(chat_id)
 
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
         logger.error(f"💥 [Worker CLT] Erro crítico: {e}", exc_info=True)
-        erro_handler = HuggyService()
-        erro_handler.send_message(
-            chat_id=chat_id,
-            message_key="retorno_desconhecido",
-            variables={"erro": str(e)},
-            force_internal=True)
-        erro_handler.start_auto_distribution(chat_id)
+        try:
+            erro_handler = HuggyService()
+            erro_handler.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+        
+        try:
+            HuggyService().start_auto_distribution(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
         
