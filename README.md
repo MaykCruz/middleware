@@ -1,74 +1,155 @@
 # 🤖 Huggy Middleware (Empreste Digital)
+Este projeto atual como um **Middleware de Orquestração** entre a plataforma de atendimento **Huggy** e as APIs de crédito (principalmente **Facta**).
 
-Middleware de orquestração para atendimento automatizado via WhatsApp (Huggy), integrando simulações de crédito (Facta/FGTS) e gerenciamento de estados de conversação.
+O objetivo é automatizar a triagem, simulação e qualificação de leads para crédito consignado (FGTS e CLT) se forma assíncrona, garantindo alta disponibilidade e resiliência a falhas.
 
-## 🚀 Tecnologias
-- **Backend:** Python 3.11 + FastAPI
-- **Worker:** Celery (Gevent Pool)
-- **Banco/Cache:** Redis
-- **Monitoramento:** Better Stack (Logtail)
+# 🏗️ Arquitetura e Fluxo de Dados
+O sistema utiliza uma arquitetura baseada em eventos e filas para garantir que o atendimento ao cliente não trave, mesmo que as APIs bancárias estejam lentas.
 
----
+````mermaid
+graph TD
+    User((Usuário)) -->|Envia msg| Huggy[Huggy Platform]
+    Huggy -->|Webhook (POST)| API[FastAPI Webhook]
+    
+    subgraph "Middleware Core"
+        API -->|Filtra Evento| Dispatcher[Event Dispatcher]
+        Dispatcher -->|Enfileira Task| RedisQueue[(Redis Broker)]
+        
+        RedisQueue -->|Consome| Worker[Celery Worker]
+        
+        Worker -->|Gerencia Estado| Session[(Redis Cache)]
+        Worker -->|Decide Fluxo| Engine[Bot Engine]
+    end
+    
+    subgraph "Integrações"
+        Worker -->|Simula Crédito| Facta[Facta API]
+        Worker -->|Responde/Move Flow| Huggy
+    end
 
-## ⚠️ PONTOS DE ATENÇÃO (Hardcoded)
-Algumas configurações de negócio estão fixas no código e exigem alteração manual + deploy caso mudem na plataforma de origem.
+    Facta --x|Erro/Timeout| Worker
+    Worker -->|Retry/Fallback| Huggy
+````
+# 🧠 Decisões Arquiteturais (O "Porquê")
+**1. Processamento Assíncrono (Celery + Redis)**
 
-### 1. Huggy (Integração)
-* **Company ID:** O ID da empresa (`351946`) está fixo na URL base.
-    * Arquivo: `app/integrations/huggy/client.py`
-    * *Ação:* Se mudar de conta na Huggy, alterar este arquivo.
+**Por que?** As APIs de crédito (Facta) frequentemente demoram entre 10s a 40s para responder, e sofrem de instabilidades. **Decisão:**Não processamos nada na rota da API (`/webhook`). A API apenas recebe, valida e joga na fila. O Worker processa em background. Isso evita Timeouts da Huggy e mantém a API sempre responsiva.
 
-### 2. Facta (Tabelas de Juros)
-* **Tabela FGTS:** O código da tabela (`62170` - Gold Preference) e a taxa (`1.80`) estão fixos.
-    * Arquivo: `app/integrations/facta/fgts/client.py`
-    * Método: `_selecionar_melhor_tabela`
-    * *Ação:* Se a Facta mudar a tabela comercial, atualizar este dicionário.
+**2. Resiliência e "At-Least-Once" Delivery**
 
-### 3. Regras de Timeout
-* **Tempos de Espera:** As regras de quanto tempo esperar em cada menu (ex: 10min, 5h) estão em um dicionário Python.
-    * Arquivo: `app/core/timeouts.py`
+**Configuração:** `acks_late=True` nas Tasks. **Por que?** Se um container do Worker for reiniciado (Deploy) ou "morrer" (OOM) enquanto processa um cliente, a tarefa **não é perdida**. O Redis devolve a tarefa para a fila e outro worker pega. **Efeito Colateral**: Em casos raros, o cliente pode receber uma mensagem duplicada, mas nunca ficará sem resposta.
 
----
+**3. Gerencimaento de Concorrência (Lock Distribuido)**
 
-## 📝 Gerenciamento de Conteúdo (Mensagens)
-O bot utiliza um sistema híbrido de mensagens (Gist + Redis + Arquivo Local).
+**Arquivo**: `app/infrastructure/token_manager.py` **Problema:** A Facta invalida o token anterior se gerarmos um novo. Se 10 workers tentarem renovar o token ao mesmo tempo, todos falham. **Solução:** Implementamos um **Mutex Distribuido no Redis**. Apenas um worker consegue o "Lock" para renovar o token. Os outros aguardam (sleep) e usam o token gerado pelo líder.
 
-### Fluxo de Atualização (Sem Deploy)
-1.  Edite o arquivo `messages.json` no **GitHub Gist**.
-2.  Chame o endpoint administrativo para limpar o cache:
-    `POST /admin/refresh-messages`
-3.  O bot baixará a nova versão na próxima interação.
+**4. Micro-Retries e Blindagem SSL**
 
-### Sincronizando o Ambiente Local
-Para garantir que o repositório tenha a versão mais recente das mensagens (backup), execute o script de sincronização antes de commitar:
+**Arquivo:** `app/integrations/facta/clt/client.py` **Problema:** Erros de `SSL: UNEXPECTED_EOF_WHILE_READING` ocorrem aleatóriamente na infraestrutura da Facta. **Solução:** Implementamos um loop de tentativas local (`for tentativa in range(3)`) com `time.sleep(1)` dentro do Client HTTP. Isso resolve falhas de milissegundos sem precisar reiniciar a task inteira do Celery.
+
+**5. Mensagens Dinâmicas (Gist + Cache)**
+
+**Problema:** Alterar um texto do bot exigia Deply da aplicação. **Solução:** As mensagens ficam em um JSON no GitHub Gist. O sistema usa um **Singleton com Cache TTL (`MenssageLoader`). Ele busca do Gist a cada 10 minutos ou via endpoint administrativo.
+
+# 🛠️ Stack Tecnológica
+* **Linguagem:** Python 3.11+
+* **Web Framework:** FastAPI (Uvicorn)
+* **Async Task Queue:** Celery 5.x
+* **Broker & Caching:** Redis 7 (Alpine)
+* **Monitoramento:** Better Stack (Longtail)
+* **HTTP Client:** Httpx (com suporte a Proxy e Timeouts rígidos)
+
+# ⚙️ Configuração e Execução
+
+**Variáveis de Ambiente (.env)**
+
+Crie um arquivo `.env` na raiz baseado nos exemplos abaixo:
 
 ```bash
-# Na raiz do projeto
-python app/sync_messages.py
+# --- CORE ---
+LOG_LEVEL=INFO
+ADMIN_API_TOKEN=sua_senha_segura_para_limpar_cache
 
-# Depois commite a atualização
-git add app/services/bot/content/messages.json
-git commit -m "chore: sync messages from gist"
+# --- HUGGY ---
+HUGGY_API_TOKEN=seu_token_v3
+HUGGY_COMPANY_ID=351946
+
+# --- FILAS (REDIS) ---
+CELERY_BROKEN_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# --- FACTA ---
+FACTA_USER=usuario_api
+FACTA_PASSWORD=senha_api
+FACTA_API_URL=https://webservice-homol.facta.com.br
+FACTA_PROXY_URL=http://user:pass@proxy.com:8080 (Opcional)
+
+# --- CONTEÚDO ---
+MESSAGES_URL=https://gist.githubusercontent.com/.../raw/messages.json
 ```
-## 🛠️ Comandos Úteis
-### Rodar Localmente (Docker)
+
+**Rodando com Docker**
 ```bash
-docker-compose up --build
+# Subir todo o ambiente (API + Worker + Redis + Postgres)
+docker-compose up --build -d
+
+# Ver logs em tempo real
+docker-compose logs -f
 ```
-### Limpar Redis (Hard Reset)
-Se precisar limpar todas as sessões e caches:
+
+# 🔎 Monitoramento e Debug
+
+**Logs (Better Stack)**
+
+O sistema envia logs estruturados para o Better Stack.
+
+* `INFO:` Fluxo nromal (Cliente, entrou, simulou, resultado).
+* `WARNING:` Retentativas, falhas parciais de API, instabilidades.
+* `ERROR:` Erros de lógica ou falhas de conexão persistentes.
+* `CRITICAL:` Falha no Redis ou incapacidade de autodistribuição.
+
+**Endpoint de Saúde**
+
+* `GET /health/celery`: Verifica se os workers estão ativos e conectados ao Redis.
+
+**Limpeza de Cache (Mensagens)**
+
+Para atualizar os textos do bot sem redeploy:
 ```bash
-redis-cli -u "SUA_REDIS_KEY" FLUSHALL
+curl -X POST http://localhost:8000/admin/refresh-messages \
+     -H "x-admin-token: SUA_SENHA_DO_ENV"
 ```
-### Variáveis de Ambiente Obrigatórias
-* `HUGGY_API_TOKEN`: Token da API V3.
-* `FACTA_USER`/`FACTA_PASSWORD`: Credenciais da Facta.
-* `MESSAGES_URL`: Link RAW do Gist (ex: `gist.githubusercontent.com/.../raw/messages.json`).
-* `CELERY_RESULT_BACKEND`: URL do Redis.
 
+# 🧪 Testes
+ 
+ O projeto utiliza `pytest` com mocks para garantir que a lógica não dependa das APIs externas durante o desenvolvimento.
+ ```bash
+# Rodar testes
+pytest -v
 
-Notes for me:
+# Rodar testes de um arquivo específico
+pytest tests/services/test_fgts_service.py
+```
 
-- Verificar a questão do possível looping infinito quando enviamos o termo, aguardamos, conferimos, enviamos novamente...
-- Verificar a questão das idades limites, que não são tão simples quanto fazer uma verificação da idade mínima.
+# 📝 Notas de Desenvolvimento
 
+1. **Timeouts:** Nunca confie no timeout padrão das bibliotecas. O `httpx` está configurado com timeouts explícitos (30s a 60s) para evitar que workers fiquem presos (zumbis).
+
+2. **Redis:** O Redis é configurado com `socket_timeout=5.0`. Se a conexão de rede cair, o worker falha rápido e reinicia, em vez de travar eternamente.
+
+3. **Deploy:** Ao realizar deploy, o Celery tenta finalizar a tarefa atual. Se não conseguir a tempo, a task volta para a fila (graças ao `acks_late`).
+
+## 📦 Estrutura de Pastas
+
+* `app/core`: Configurações base (Logger, Timeouts).
+
+* `app/events`: Roteamento e filtros de Webhooks (Dispatcher).
+
+* `app/infrastructure`: Conexões de banco e filas (Celery, Redis TokenManager).
+
+* `app/integrations`: Adaptadores para APIs externas (Facta, Huggy).
+
+* `app/routers`: Endpoints da API (Webhooks, API Interna).
+
+* `app/services`: Lógica de Negócio (Bot Engine, Regras de Produto).
+
+* `app/tasks`: Definição dos Workers do Celery.
