@@ -66,7 +66,7 @@ class HuggyClient:
         url = f"{self.base_url}/chats/{chat_id}/messages"
 
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.post(url, headers=self._get_headers(), json=payload)
                 response.raise_for_status()
                 
@@ -100,7 +100,7 @@ class HuggyClient:
             payload["variables"] = variables
 
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.post(url, headers=self._get_headers(), json=payload)
                 
                 # 200 OK - Sucesso (Body vazio)
@@ -138,7 +138,7 @@ class HuggyClient:
             action_name = f"mover para etapa {step_id}"
         
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.put(url, headers=self._get_headers(), json=payload)
 
                 if response.status_code == 200:
@@ -170,7 +170,7 @@ class HuggyClient:
             payload["comment"] = comment
         
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.put(url, headers=self._get_headers(), json=payload)
                 
                 if response.status_code == 200:

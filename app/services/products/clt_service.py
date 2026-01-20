@@ -90,15 +90,15 @@ class CLTService:
                 admissao = resultado_raw.get("data_admissao")
                 meses_casa = calcular_meses(admissao)
 
-                margem_minima_transbordo = 50.00
+                margem_minima_distribuir = 50.00
 
-                if margem <= margem_minima_transbordo:
+                if margem <= margem_minima_distribuir:
                     return CreditOffer(
                         status=AnalysisStatus.SEM_MARGEM,
                         message_key="sem_margem_cliente",
                         raw_details={
                             **resultado_raw,
-                            "msg_tecnica": f"Idade não enquadra Facta e margem baixa ({formatar_moeda(margem)}) para transbordo."
+                            "msg_tecnica": f"Idade não enquadra Facta e margem baixa ({formatar_moeda(margem)}) para distribuir."
                         }
                     )
 

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from app.integrations.facta.clt.client import FactaCLTAdapter
-from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses
+from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses, formatar_moeda
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ class FactaCLTService:
                 msg_enriquecida = (
                     f"{msg_base}\n"
                     f"📊 *Dados para análise:*\n"
-                    f"• Margem: R$ {margem_disp:.2f}\n"
+                    f"• Margem: R$ {formatar_moeda(margem_disp)}\n"
                     f"• Admissão: {texto_admissao}"
                 )
 
