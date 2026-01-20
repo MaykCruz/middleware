@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from app.services.data_manager import DataManager
 
 def parse_valor_monetario(valor) -> float:
     if valor is None: return 0.0
@@ -45,14 +46,8 @@ def obter_mes_inicio_desconto() -> str:
     meses_para_somar = 2 if agora.day <= DIA_CORTE else 3
 
     data_futura = agora + relativedelta(months=meses_para_somar)
-
-    meses_pt = {
-        1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
-        5: "maio", 6: "junho", 7: "julho", 8: "agosto",
-        9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
-    }
     
-    return meses_pt[data_futura.month]
+    return DataManager().get_nome_mes(data_futura.month)
 
 def limpar_nome(nome: str) -> str:
     """

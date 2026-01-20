@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, timedelta
 import holidays
+from app.services.data_manager import DataManager
 
 def validate_cpf(cpf: str) -> bool:
     """
@@ -37,15 +38,10 @@ def clean_digits(text: str) -> str:
     """Retorna apenas os números da string"""
     return re.sub(r'[^0-9]', '', text)
 
-MESES = {
-    1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
-    5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
-    9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
-}
-
 def formatar_data_br(data: datetime) -> str:
     """Formata a data como 'DD de mês_extenso'."""
-    return f"{data.day} de {MESES[data.month]}"
+    nome_mes = DataManager().get_nome_mes(data.month)
+    return f"{data.day} de {nome_mes}"
 
 def calcular_segundo_dia_util_mes(mes, ano):
     """Calcula o 2º dia útil de um mês específico"""

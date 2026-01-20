@@ -1,55 +1,15 @@
-import httpx
 import logging
 from typing import Optional, Dict
 from app.integrations.facta.auth import FactaAuth, create_client
+from app.services.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
-
-BANCOS_DICT = {
-  "001": "Banco do Brasil",
-  "003": "Banco da Amazônia",
-  "004": "Banco do Nordeste do Brasil",
-  "021": "Banestes",
-  "025": "Banco Alfa",
-  "033": "Banco Santander",
-  "037": "Banco do Estado do Pará",
-  "041": "Banco do Estado do Rio Grande do Sul",
-  "047": "Banco do Estado de Sergipe",
-  "069": "Banco Crefisa",
-  "070": "Banco de Brasília",
-  "077": "Banco Inter",
-  "085": "Cooperativa Central de Crédito Urbano - Cecred",
-  "091": "Central Unicred RS",
-  "097": "Cooperativa Central de Crédito Noroeste Brasileiro Ltda.",
-  "104": "Caixa Econômica Federal",
-  "121": "Banco Agibank",
-  "133": "Confederação Nacional das Cooperativas Centrais de Crédito",
-  "136": "Confederação Nacional das Cooperativas Centrais Unicred Ltda.",
-  "208": "Banco BTG Pactual",
-  "212": "Banco Original",
-  "218": "Banco BS2",
-  "237": "Banco Bradesco",
-  "246": "Banco ABC Brasil",
-  "260": "Nubank",
-  "318": "Banco BMG",
-  "335": "Banco Digio",
-  "336": "Banco C6",
-  "341": "Itaú Unibanco",
-  "380": "PicPay Bank",
-  "389": "Banco Mercantil do Brasil",
-  "403": "Cora Sociedade de Crédito Direto",
-  "422": "Banco Safra",
-  "623": "Banco Pan",
-  "707": "Banco Daycoval",
-  "745": "Banco Citibank",
-  "748": "Banco Sicredi",
-  "756": "Bancoob"
-}
 
 class FactaDadosCadastrais:
     def __init__(self):
         self.auth = FactaAuth()
         self.base_url = self.auth.base_url
+        self.data_manager = DataManager()
     
     @property
     def _get_headers(self):
@@ -63,8 +23,7 @@ class FactaDadosCadastrais:
         if not banco or not conta:
             return ""
         
-        banco_str = str(banco).zfill(3)
-        banco_formatado = BANCOS_DICT.get(banco_str, f" Banco {banco_str}")
+        banco_formatado = self.data_manager.get_nome_banco(banco)
 
         agencia_formatada = str(agencia).zfill(4) if agencia else "Sem Agência"
 
@@ -127,7 +86,7 @@ class FactaDadosCadastrais:
                 return {
                     "raw": dados,
                     "texto_formatado": texto_completo,
-                    "banco_nome": BANCOS_DICT.get(str(banco).zfill(3), banco)
+                    "banco_nome": self.data_manager.get_nome_banco(banco),
                 }
         except Exception as e:
             logger.error(f"❌ [Facta] Falha ao buscar dados cadastrais: {e}")
