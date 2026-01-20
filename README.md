@@ -6,10 +6,10 @@ O objetivo é automatizar a triagem, simulação e qualificação de leads para 
 # 🏗️ Arquitetura e Fluxo de Dados
 O sistema utiliza uma arquitetura baseada em eventos e filas para garantir que o atendimento ao cliente não trave, mesmo que as APIs bancárias estejam lentas.
 
-````mermaid
+```mermaid
 graph TD
     User((Usuário)) -->|Envia msg| Huggy[Huggy Platform]
-    Huggy -->|Webhook (POST)| API[FastAPI Webhook]
+    Huggy -->|Webhook POST| API[FastAPI Webhook]
     
     subgraph "Middleware Core"
         API -->|Filtra Evento| Dispatcher[Event Dispatcher]
@@ -23,12 +23,13 @@ graph TD
     
     subgraph "Integrações"
         Worker -->|Simula Crédito| Facta[Facta API]
-        Worker -->|Responde/Move Flow| Huggy
+        Worker -->|Responde e Move Flow| Huggy
     end
 
-    Facta --x|Erro/Timeout| Worker
-    Worker -->|Retry/Fallback| Huggy
-````
+    Facta --x|Erro ou Timeout| Worker
+    Worker -->|Retry e Fallback| Huggy
+```
+***
 # 🧠 Decisões Arquiteturais (O "Porquê")
 **1. Processamento Assíncrono (Celery + Redis)**
 
