@@ -10,7 +10,7 @@ def test_create_client_uses_proxy(mocker):
     
     # Verifica se foi chamado com o proxy definido no conftest.py
     mock_httpx.assert_called_with(
-        timeout=30.0, 
+        timeout=60.0, 
         proxy="http://user:pass@127.0.0.1:8080"
     )
 
