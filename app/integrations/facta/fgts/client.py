@@ -86,9 +86,10 @@ class FactaFGTSAdapter:
         code = data.get("codigo")
         msg = data.get("mensagem", "").lower()
 
-        # Retorno genérico
-        if "volte em" in msg: 
-            return "ERRO_GENERICO"
+        termos_retry = ["volte em"]
+
+        if any(termo in msg for termo in termos_retry):
+            return "PROCESSAMENTO_PENDENTE"
 
         # Sem autorização
         if code == 7 or "instituição fiduciária não possui autorização do trabalhador" in msg:

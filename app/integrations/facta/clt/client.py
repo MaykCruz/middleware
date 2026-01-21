@@ -233,7 +233,7 @@ class FactaCLTAdapter:
         if "token expirado, necessário utilizar o endpoint" in msg:
             return "TERMO_EXPIRADO"
         
-        if "consulta de dados indisponível devido a virada de folha" in msg:
+        if "consulta de dados indisponível devido a virada de folha" in msg or "virada de competência" in msg:
             return "VIRADA_FOLHA_CLT"
         
         if "cpf não encontrado na base" in msg:

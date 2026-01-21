@@ -13,12 +13,17 @@ def _safe_error_string(e: Exception) -> str:
     err_msg = str(e)
     return err_msg[:200]
 
-@celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts", acks_late=True)
-def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
+@celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts", bind=True, acks_late=True)
+def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
     """
     Executa a lógica de FGTS e responde via Huggy.
+    Agora com suporte a Retry Inteligente.
     """
-    logger.info(f"⚙️ [Worker] Processando FGTS para CPF {cpf}")
+    MAX_RETRIES = 10
+    COUNTDOWN=30
+
+    tentativa_atual = self.request.retries + 1
+    logger.info(f"⚙️ [Worker] Processando FGTS para CPF {cpf} (Tentativa {tentativa_atual})")
 
     try:
         fgts_service = FGTSService()
@@ -26,8 +31,28 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
 
         oferta = fgts_service.consultar_melhor_oportunidade(cpf)
 
-        logger.info(f"📤 [Worker FGTS] Resultado: {oferta.status} | Msg: {oferta.message_key}")
+        logger.info(f"📤 [Worker FGTS] Resultado: {oferta.status} | Msg: {oferta.message_key} | ChatId: {chat_id}")
 
+        if oferta.status == AnalysisStatus.PROCESSAMENTO_PENDENTE:
+            if self.request.retries == 0 or self.request.retries % 3 == 0:
+                msg_original = oferta.variables.get("blank", "Processamento pendente.")
+
+                msg_enriquecida = (
+                    f"{msg_original}\n\n"
+                    f"🔄 *Reconsulta automática:*\n"
+                    f"Reconsultando em {COUNTDOWN}s... (Tentativa {tentativa_atual}/{MAX_RETRIES})"
+                )
+
+                oferta.variables["blank"] = msg_enriquecida
+
+                huggy.send_message(
+                    chat_id=chat_id,
+                    message_key=oferta.message_key,
+                    variables=oferta.variables,
+                    force_internal=oferta.is_internal
+                )
+            raise self.retry(countdown=COUNTDOWN, max_retries=MAX_RETRIES)
+        
         huggy.send_message(
             chat_id=chat_id,
             message_key=oferta.message_key,
@@ -63,7 +88,27 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
             huggy.start_auto_distribution(chat_id)
     
+    except MaxRetriesExceededError:
+        logger.info(f"⏰ [Worker FGTS] Timeout: Desistindo após {MAX_RETRIES} tentativas.")
+        try:
+            timeout_handler = HuggyService()
+            timeout_handler.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "Limite de tentativas de processamento excedido."},
+                force_internal=True)
+            timeout_handler.send_message(
+                chat_id=chat_id,
+                message_key="clt_limite_tentativas"
+            )
+        except Exception:
+            pass
+
+        HuggyService().start_auto_distribution(chat_id)
+    
     except Exception as e:
+        if isinstance(e, Retry):
+            raise e  # Re-raise Retry exceptions to let Celery handle them
         logger.error(f"💥 [Worker FGTS] Erro crítico: {e}", exc_info=True)
         try:
             erro_handler = HuggyService()
@@ -72,12 +117,13 @@ def executar_fluxo_fgts(chat_id: str, cpf: str, nome: str = None, celular: str =
                 message_key="retorno_desconhecido",
                 variables={"erro": _safe_error_string(e)},
                 force_internal=True)
-        except Exception as send_err:
-            logger.error(f"⚠️ Falha ao enviar mensagem de erro para o Huggy: {send_err}")
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+        
         try:
             HuggyService().start_auto_distribution(chat_id)
-        except Exception as dist_err:
-            logger.critical(f"☠️ FALHA TOTAL: Não foi possível transbordar Chat {chat_id}: {dist_err}")
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True)
 def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True):
@@ -85,9 +131,12 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
     Executa a lógica pesada de CLT e responde via Huggy.
     Suporta retry automático para status PROCESSAMENTO_PENDENTE.
     """
-    tentativa = self.request.retries + 1
+    MAX_RETRIES = 10
+    COUNTDOWN=30
 
-    logger.info(f"⚙️ [Worker] Processando CLT para CPF {cpf} (Tentativa {tentativa})")
+    tentativa_atual = self.request.retries + 1
+
+    logger.info(f"⚙️ [Worker] Processando CLT para CPF {cpf} (Tentativa {tentativa_atual})")
 
     try:
         clt_service = CLTService()
@@ -99,13 +148,23 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
 
         if oferta.status == AnalysisStatus.PROCESSAMENTO_PENDENTE:
             if self.request.retries == 0 or self.request.retries % 3 == 0:
+                msg_original = oferta.variables.get("blank", "Processamento pendente.")
+
+                msg_enriquecida = (
+                    f"{msg_original}\n\n"
+                    f"⏳ *Fila de Espera Facta:*\n"
+                    f"Reconsultando em {COUNTDOWN}s... (Tentativa {tentativa_atual}/{MAX_RETRIES})"
+                )
+
+                oferta.variables["blank"] = msg_enriquecida
+
                 huggy.send_message(
                     chat_id=chat_id,
                     message_key=oferta.message_key,
                     variables=oferta.variables,
                     force_internal=oferta.is_internal
                 )
-            raise self.retry(countdown=30, max_retries=10)
+            raise self.retry(countdown=COUNTDOWN, max_retries=MAX_RETRIES)
 
         huggy.send_message(
             chat_id=chat_id,
