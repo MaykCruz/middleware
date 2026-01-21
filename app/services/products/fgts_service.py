@@ -60,6 +60,16 @@ class FGTSService:
         
         motivo = resultado_raw.get("motivo")
 
+        if motivo == "PROCESSAMENTO_PENDENTE":
+            msg_tecnica = resultado_raw.get("msg_tecnica", "Instabilidade momentânea API Facta.")
+            return CreditOffer(
+                status=AnalysisStatus.PROCESSAMENTO_PENDENTE,
+                message_key="blank",
+                variables={"blank": msg_tecnica},
+                is_internal=True,
+                raw_details=resultado_raw
+            )
+    
         if motivo in ["SEM_AUT", "SEM_AUTORIZACAO"]:
             return CreditOffer(
                 status=AnalysisStatus.SEM_AUTORIZACAO,
