@@ -2,6 +2,7 @@ import logging
 from app.integrations.facta.fgts.service import FactaFGTSService
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 from app.schemas.credit import CreditOffer, AnalysisStatus
+from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda
 from app.utils.validators import calcular_segundo_dia_util_prox_mes
 
@@ -15,8 +16,9 @@ class FGTSService:
     def __init__(self):
         self.facta_service = FactaFGTSService()
         self.dados_cadastrais = FactaDadosCadastrais()
+        self.session_manager = SessionManager()
 
-    def consultar_melhor_oportunidade(self, cpf: str) -> CreditOffer:
+    def consultar_melhor_oportunidade(self, cpf: str, chat_id: str) -> CreditOffer:
         """
         Executa a lógica de prioridade (Waterfall).
         Atualmente: Chama Facta.

@@ -77,3 +77,18 @@ class SessionManager:
         key = self._get_key_context(chat_id)
         val = self.redis_client.get(key)
         return json.loads(val) if val else {}
+    
+    def update_context(self, chat_id: int, new_data: dict):
+        """
+        Mescla novos dados no contexto existente sem apagar os anteriores.
+        Útil para adicionar dados da oferta selecionada ao CPF/Nome que já existem.
+        """
+        try:
+            current_context = self.get_context(chat_id)
+            if not current_context:
+                current_context = {}
+            current_context.update(new_data)
+            self.set_context(chat_id, current_context)
+            logger.debug(f"💾Contexto atualizado para Chat {chat_id}: {new_data.keys()}")
+        except Exception as e:
+            logger.error(f"❌ Erro ao atualizar contexto do chat {chat_id}: {str(e)}")

@@ -20,7 +20,7 @@ class FactaBaseModel(BaseModel):
 
 class ProposalStep1Base(FactaBaseModel):
     """Campos comuns na Etapa 1 para qualquer produto."""
-    cpf: str = Field(..., description="CPF apenas números", min_length=11, max_length=11)
+    cpf: str = Field(..., pattern=r'^\d{11}$', description="CPF apenas números", min_length=11, max_length=11)
     data_nascimento: str = Field(..., description="Formato DD/MM/AAAA")
     login_certificado: str = Field(..., description="Login do operador certificado")
 
@@ -55,33 +55,36 @@ class ProposalStep2Base(FactaBaseModel):
     Dados Pessoais (Comuns a ambos)
     """
     id_simulador: int
-    cpf: str = Field(..., min_length=11, max_length=11)
+    cpf: str = Field(..., pattern=r'^\d{11}$')
     nome: str = Field(..., min_length=3)
     sexo: Literal["M", "F"]
-    estado_civil: int
     data_nascimento: str
+
     rg: str
     estado_rg: str = Field(..., min_length=2, max_length=2)
     orgao_emissor: str
     data_expedicao: str
 
-    cep: str = Field(..., min_length=8, max_length=8)
+    cep: str = Field(..., pattern=r'^\d{8}$')
     endereco: str
     numero: int
-    complemento: Optional[str] = ""
     bairro: str
     cidade: str
     estado: str = Field(..., min_length=2, max_length=2)
-
+    
     nome_mae: str
-    nome_pai: Optional[str] = None
-    nacionalidade: int = 1
     estado_natural: str = Field(..., min_length=2, max_length=2)
     cidade_natural: int
 
     celular: str
-    renda: float
-    valor_patrimonio: int
+
+    estado_civil: int = 4                             # Padrão: Solteiro
+    nacionalidade: int = 1                            # Padrão: Brasileiro
+    pais_origem: int = 26                             # Padrão: Brasil
+    renda: float = 3000.00                            # Padrão: R$ 3.000
+    complemento: str = ""                             # Padrão: Vazio
+    nome_pai: str = "NAO INFORMOU"                    # Padrão
+    valor_patrimonio: int = 1
     cliente_iletrado_impossibilitado: Literal["S", "N"] = "N"
 
     banco: Optional[str] = None
