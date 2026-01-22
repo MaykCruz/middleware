@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from app.integrations.facta.auth import FactaAuth, create_client
 from app.services.data_manager import DataManager
 
@@ -16,6 +16,64 @@ class FactaDadosCadastrais:
         token = self.auth.get_valid_token()
         return {"Authorization": f"Bearer {token}"}
     
+    def consultar_dados_completos(self, cpf: str) -> Optional[Dict[str, Any]]:
+        """
+        Realiza a requisição na API Facta e retorna o JSON bruto do cliente.
+        Este método serve de base para todas as outras extrações.
+        """
+        url = f"{self.base_url}/proposta/consulta-cliente"
+        params = {"cpf": cpf}
+
+        try:
+            with create_client() as client:
+                logger.info(f"🔎 [Facta] Consultando dados cadastrais completos para CPF {cpf}...")
+                response = client.get(url, headers=self._get_headers, params=params)
+
+                if response.status_code != 200:
+                    logger.warning(f"⚠️ [Facta] Erro API Consulta: {response.status_code}")
+                    return None
+                
+                data = response.json()
+
+                if data.get("erro") is True:
+                    return None
+                
+                cliente_lista = data.get("cliente", [])
+                if not cliente_lista:
+                    return None
+                
+                return cliente_lista[0]
+        
+        except Exception as e:
+            logger.error(f"❌ [Facta] Falha ao consultar dados cadastrais: {e}")
+            return None
+    
+    def buscar_conta_bancaria(self, cpf: str) -> Optional[Dict[Dict, str]]:
+        """
+        Usa a consulta completa para extrair e formatar apenas dados bancários.
+        """
+        dados = self.consultar_dados_completos(cpf)
+
+        if not dados:
+            return None
+        
+        banco = dados.get("BANCO")
+        agencia = dados.get("AGENCIA") 
+        conta = dados.get("CONTA")
+        tipo = dados.get("TIPO_CONTA", "")
+
+        if not banco or not conta:
+            logger.info(f"ℹ️ [Facta] Cliente encontrado, mas sem dados bancários completos.")
+            return None
+        
+        texto_completo = self._formatar_dados_bancarios(banco, agencia, conta, tipo)
+
+        return {
+            "raw": dados,
+            "texto_formatado": texto_completo,
+            "banco_nome": self.data_manager.get_nome_banco(banco),
+        }
+
     def _formatar_dados_bancarios(self, banco: str, agencia: str, conta: str, tipo: str) -> str:
         """
         Formata os dados brutos para exibição amigável.
@@ -44,50 +102,3 @@ class FactaDadosCadastrais:
         
         texto = f"{banco_formatado}\nAgência: {agencia_formatada}\nConta {tipo_desc}: {conta_formatada}"
         return texto
-    
-    def buscar_conta_bancaria(self, cpf: str) -> Optional[Dict[Dict, str]]:
-        """
-        Busca dados do cliente na Facta e retorna os dados formatados se existirem.
-        """
-        url = f"{self.base_url}/proposta/consulta-cliente"
-        params = {"cpf": cpf}
-
-        try:
-            with create_client() as client:
-                logger.info(f"🔎 [Facta] Consultando dados cadastrais para CPF {cpf}...")
-                response = client.get(url, headers=self._get_headers, params=params)
-
-                if response.status_code != 200:
-                    logger.warning(f"⚠️ [Facta] Erro API Consulta: {response.status_code}")
-                    return None
-
-                data = response.json()
-
-                if data.get("erro") is True:
-                    return None
-                
-                cliente_lista = data.get("cliente", [])
-                if not cliente_lista:
-                    return None
-                
-                dados = cliente_lista[0]
-
-                banco = dados.get("BANCO")
-                agencia = dados.get("AGENCIA") 
-                conta = dados.get("CONTA")
-                tipo = dados.get("TIPO_CONTA", "")
-
-                if not banco or not conta:
-                    logger.info(f"ℹ️ [Facta] Cliente encontrado, mas sem dados bancários completos.")
-                    return None
-                
-                texto_completo = self._formatar_dados_bancarios(banco, agencia, conta, tipo)
-
-                return {
-                    "raw": dados,
-                    "texto_formatado": texto_completo,
-                    "banco_nome": self.data_manager.get_nome_banco(banco),
-                }
-        except Exception as e:
-            logger.error(f"❌ [Facta] Falha ao buscar dados cadastrais: {e}")
-            return None
