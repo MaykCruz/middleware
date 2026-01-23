@@ -160,7 +160,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         clt_service = CLTService()
         huggy = HuggyService()
 
-        oferta = clt_service.consultar_oportunidade(cpf, nome, celular, enviar_link=enviar_link)
+        oferta = clt_service.consultar_oportunidade(cpf, nome, celular, chat_id, enviar_link=enviar_link)
 
         logger.info(f"📤 [Worker] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
 
