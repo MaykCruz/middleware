@@ -187,4 +187,31 @@ class HuggyClient:
             logger.error(f"❌ Erro conexão Huggy ao fechar chat: {str(e)}")
             return False
     
+    def transfer_chat(self, chat_id: int, agent_id: int, message: str = None) -> bool:
+        """
+        Transfere o chat para um ID de agente específico.
+        """
+        url = f"{self.base_url}/chats/{chat_id}/transfer"
+
+        payload = {
+            "agentId": int(agent_id)
+        }
+
+        if message:
+            payload["message"] = message
+        
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                response = client.post(url, headers=self._get_headers(), json=payload)
+                
+                if response.status_code == 200:
+                    logger.info(f"✅ [Huggy] Chat {chat_id} transferido para Agente {agent_id}.")
+                    return True
+                
+                logger.error(f"❌ [Huggy] Falha transf. Chat {chat_id}: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ [Huggy] Erro conexão transfer_chat: {str(e)}")
+            return False
     

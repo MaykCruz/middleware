@@ -321,7 +321,7 @@ class FactaCLTService:
 
         if valor_liberado > teto_politica:
             logger.info(f"💰 [CLT] Valor {valor_liberado} excede teto {teto_politica}. Recalculando...")
-            return self._recalcular_por_valor(cpf, nasc, prazo_politica, teto_politica)
+            return self._recalcular_por_valor(cpf, nasc, prazo_politica, teto_politica, trab)
         
         return {
             "aprovado": True,
@@ -332,11 +332,11 @@ class FactaCLTService:
                 "prazo": int(melhor_opcao.get("prazo")),
                 "tabela_nome": melhor_opcao.get("descricao", "Padrão"),
                 "codigo_tabela": melhor_opcao.get("codigoTabela"),
-                "dados_bancarios": trab # Repassando dados para eventual confirmação
+                "dados_trabalhador": trab # Repassando dados para eventual confirmação
             }
         }
     
-    def _recalcular_por_valor(self, cpf, nasc, prazo, valor_teto):
+    def _recalcular_por_valor(self, cpf, nasc, prazo, valor_teto, trab):
         """
         Refaz a simulação limitando pelo valor (Opção 1), mantendo o prazo.
         Baseado em operacoes_disponiveis_valor do api_facta.py.
@@ -373,7 +373,7 @@ class FactaCLTService:
                 "prazo": int(melhor_opcao.get("prazo")),
                 "tabela_nome": melhor_opcao.get("descricao", "Padrão Ajustada"),
                 "codigo_tabela": melhor_opcao.get("codigoTabela"),
-                "dados_bancarios": {}
+                "dados_trabalhador": trab
             }
         }
 

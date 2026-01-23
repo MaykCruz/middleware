@@ -6,40 +6,84 @@ logger = logging.getLogger(__name__)
 
 class DataManager:
     _instance = None
+    _initialized = False
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(DataManager, cls).__new__(cls)
-            cls._instance.bancos = {}
-            cls._instance.meses = {}
-            cls._instance._load_data()
         return cls._instance
     
-    def _load_data(self):
-        """Carrega os arquivos JSON da pasta app/data para a memória."""
-        try:
-            base_path = "app/data"
-
-            bancos_path = f"{base_path}/bancos.json"
-            if os.path.exists(bancos_path):
-                with open(bancos_path, "r", encoding="utf-8") as f:
-                    self.bancos = json.load(f)
-            else:
-                logger.warning(f"⚠️ [DataManager] Arquivo {bancos_path} não encontrado.")
-            
-            meses_path = f"{base_path}/meses.json"
-            if os.path.exists(meses_path):
-                with open(meses_path, "r", encoding="utf-8") as f:
-                    self.meses = json.load(f)
-            else:
-                logger.warning(f"⚠️ [DataManager] Arquivo {meses_path} não encontrado.")
-
-            logger.info(f"✅ [DataManager] Dados carregados: {len(self.bancos)} bancos, {len(self.meses)} meses.")
+    def __init__(self):
+        if self._initialized:
+            return
         
+        self.bancos = {}
+        self.meses = {}
+        self.estados_por_id_cidade = {}
+        self._load_data()
+        self._initialized = True
+
+    def _carregar_json(self, filepath: str, descricao: str):
+        """Helper para carregar JSON de forma isolada e segura."""
+        if not os.path.exists(filepath):
+            logger.warning(f"⚠️ [DataManager] Arquivo {descricao} não encontrado em: {filepath}")
+            return {}
+        
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
         except json.JSONDecodeError as e:
-            logger.error(f"❌ [DataManager] Erro de sintaxe no JSON de bancos: {e}")
+            logger.error(f"❌ [DataManager] Erro de sintaxe (JSON inválido/vazio) em {descricao}: {e}")
+            return {}
         except Exception as e:
-            logger.error(f"❌ [DataManager] Erro inesperado ao carregar dados: {e}")
+            logger.error(f"❌ [DataManager] Erro genérico ao ler {descricao}: {e}")
+            return {}
+
+    def _load_data(self):
+        """Carrega os arquivos JSON da pasta app/data."""
+        base_path = "app/data"
+        logger.info("🔄 [DataManager] Iniciando carregamento de dados...")
+
+        # 1. Bancos
+        self.bancos = self._carregar_json(f"{base_path}/bancos.json", "BANCOS")
+
+        # 2. Meses
+        self.meses = self._carregar_json(f"{base_path}/meses.json", "MESES")
+
+        # 3. Cidades
+        raw_cidades = self._carregar_json(f"{base_path}/cidades.json", "CIDADES")
+        if raw_cidades:
+            self._indexar_estados_cidades(raw_cidades)
+
+        logger.info(f"✅ [DataManager] Carregamento finalizado. Bancos: {len(self.bancos)} | Meses: {len(self.meses)} | Cidades: {len(self.estados_por_id_cidade)}")
+    
+    def _indexar_estados_cidades(self, raw_data):
+        """
+        Lê o formato aninhado e cria um mapa ID -> UF.
+        Entrada: { "cidade": { "197": {"nome": "X", "estado": "GO"}, ... } }
+        Saída (estados_por_id_cidade): { "197": "GO", ... }
+        """
+        try:
+            dados_cidades = raw_data.get("cidade", {})
+
+            if not isinstance(dados_cidades, dict):
+                logger.warning("⚠️ [DataManager] Formato de cidades.json inesperado.")
+                return
+            
+            for cidade_id, info in dados_cidades.items():
+                uf = info.get("estado", "")
+                if uf:
+                    self.estados_por_id_cidade[str(cidade_id)] = uf.upper()
+        except Exception as e:
+            logger.error(f"❌ [DataManager] Erro ao indexar cidades: {e}")
+    
+    def get_uf_por_id(self, cidade_id: int) -> str:
+        """
+        Retorna a UF baseada no ID da cidade.
+        Ex: Recebe 197 -> Retorna "GO"
+        """
+        if not cidade_id: return ""
+        return self.estados_por_id_cidade.get(str(cidade_id), "")
     
     def get_nome_banco(self, codigo: str) -> str:
         """

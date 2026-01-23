@@ -1,72 +1,78 @@
 import logging
-import re
-from typing import Dict, Any, Optional
-from datetime import datetime
-
+from typing import Dict, Any
 from app.integrations.facta.proposal.service import FactaProposalService
-from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
-from app.services.data_manager import DataManager
 from app.services.bot.memory.session import SessionManager
+from app.integrations.newcorban.service import NewCorbanService
+from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
+
 
 logger = logging.getLogger(__name__)
 
 class ProposalService:
+    """
+    Serviço de Aplicação (Global).
+    Responsável por gerenciar a Sessão do Usuário (Redis) e acionar a integração correta.
+    """
     def __init__(self):
         self.facta_service = FactaProposalService()
-        self.facta_dados = FactaDadosCadastrais()
-        self.data_manager = DataManager()
         self.session_manager = SessionManager()
-    
-    def _formatar_data_br(self, data_iso: str) -> str:
-        """Converte AAAA-MM-DD para DD/MM/AAAA"""
-        if not data_iso: return ""
-        try:
-            data_iso = data_iso.split(" ")[0]
-            d = datetime.strptime(data_iso, "%Y-%m-%d")
-            return d.strftime("%d/%m/%Y")
-        except ValueError:
-            return data_iso
-    
-    def _limpar_numeros(self, texto: str) -> str:
-        """Remove tudo que não é digito"""
-        if not texto: return ""
-        return re.sub(r'\D', '', str(texto))
-    
-    # def _extrair_id_facta(self, texto_hibrido)
 
+        self.newcorban_service = NewCorbanService()
+        self.facta_dados = FactaDadosCadastrais()
+    
+    def executar_digitacao_fgts(self, chat_id: str) -> Dict[str, Any]:
+        """
+        Recupera o contexto do usuário no Redis e dispara a esteira de FGTS.
+        """
+        try:
+            logger.info(f"🤖 [Proposal Global] Iniciando fluxo FGTS para Chat {chat_id}")
 
-    def iniciar_proposta_fgts(self, cpf: str, data_nascimento: str, id_simulacao_fgts: int, login_certificado: str) -> int:
-        """Inicia FGTS e retorna ID Simulador"""
-        try:
-            logger.info(f"🆕 [Proposal] Iniciando proposta FGTS para CPF {cpf}")
-            dados_etapa1 = {
-                "cpf": cpf,
-                "data_nascimento": data_nascimento,
-                "login_certificado": login_certificado,
-                "simulacao_fgts": id_simulacao_fgts
-            }
-            id_simulador = self.facta_service.registrar_simulacao_fgts(dados_etapa1)
-            return id_simulador
+            context = self.session_manager.get_context(chat_id)
+            if not context:
+                raise ValueError("Sessão expirada ou não encontrada.")
+            
+            cpf = context.get("cpf")
+            if not cpf:
+                raise ValueError("CPF não encontrado na sessão.")
+            
+            oferta = context.get("oferta_selecionada", {})
+            detalhes = oferta.get("detalhes", {})
+
+            simulacao_id = detalhes.get("simulacao_fgts")
+            if not simulacao_id:
+                raise ValueError("ID da simulação FGTS não encontrado no contexto. O cliente fez a simulação?")
+            
+            resultado = self.facta_service.processar_digitacao_fgts(
+                cpf=cpf,
+                simulacao_id_calculo=int(simulacao_id),
+                dados_contexto=context
+            )
+
+            codigo_af = resultado.get("codigo")
+            link_formalizacao = resultado.get("url_formalizacao")
+
+            if codigo_af:
+                try:
+                    logger.info(f"🔌 [Proposal Global] Iniciando cadastro no NewCorban para AF {codigo_af}...")
+
+                    dados_completos = self.facta_dados.consultar_dados_completos(cpf)
+
+                    if dados_completos:
+                        dados_completos["link_formalizacao"] = link_formalizacao
+                        dados_completos["VALOR_LIQUIDO"] = detalhes.get("valor_liquido")
+
+                        self.newcorban_service.cadastrar_proposta(dados_completos, codigo_af)
+                    else:
+                        logger.warning("⚠️ [Proposal Global] Falha ao obter dados completos na Facta. CRM pulado.")
+                
+                except Exception as e_crm:
+                    # Logamos o erro mas NÃO paramos o fluxo. O cliente precisa receber o link.
+                    logger.error(f"⚠️ [Proposal Global] Erro ao integrar com NewCorban (Não crítico): {e_crm}")
+
+            logger.info(f"🎉 [Proposal Global] Sucesso Chat {chat_id}! Link: {resultado.get('url_formalizacao')}")
+            return resultado
+
         except Exception as e:
-            logger.error(f"❌ [Proposal] Erro ao iniciar FGTS: {e}")
+            logger.error(f"❌ [Proposal Global] Falha na digitação automática: {e}")
             raise e
-    
-    def iniciar_proposta_clt(self, cpf: str, data_nascimento: str, login_certificado: str, detalhes_simulacao: Dict[str, Any]) -> int:
-        """Inicia CLT e retorna ID Simulador"""
-        try:
-            logger.info(f"🆕 [Proposal] Iniciando proposta CLT para CPF {cpf}")
-            dados_etapa1 = {
-                "cpf": cpf,
-                "data_nascimento": data_nascimento,
-                "login_certificado": login_certificado,
-                **detalhes_simulacao
-            }
-            id_simulador = self.facta_service.registrar_simulacao_clt(dados_etapa1)
-            return id_simulador
-        except Exception as e:
-            logger.error(f"❌ [Proposal] Erro ao iniciar CLT: {e}")
-            raise e
-    
-    def processar_dados_pessoais(self, tipo_produto: str, dados_coletados: Dict[str, Any]) -> int:
-        """Enriquece dados (Cidades) e envia Etapa 2"""
-        pass
+

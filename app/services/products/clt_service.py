@@ -2,6 +2,7 @@ import logging
 from app.integrations.facta.clt.service import FactaCLTService
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 from app.schemas.credit import CreditOffer, AnalysisStatus
+from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses
 
 logger = logging.getLogger(__name__)
@@ -14,8 +15,9 @@ class CLTService:
     def __init__(self):
         self.facta_service = FactaCLTService()
         self.dados_cadastrais = FactaDadosCadastrais()
+        self.session_manager = SessionManager()
         
-    def consultar_oportunidade(self, cpf: str, nome: str, celular: str, enviar_link: bool = True) -> CreditOffer:
+    def consultar_oportunidade(self, cpf: str, nome: str, celular: str, chat_id: str, enviar_link: bool = True) -> CreditOffer:
         """
         Executa o fluxo completo de CPT e retorna uma Oferta Padronizada.
         """
@@ -26,6 +28,74 @@ class CLTService:
         aprovado = resultado_raw.get("aprovado")
         motivo = resultado_raw.get("motivo")
         msg_tecnica = resultado_raw.get("msg_tecnica", str(motivo))
+
+        if aprovado:
+            oferta_dados = resultado_raw.get("oferta", {})
+            trabalhador = oferta_dados.get("dados_trabalhador", {})
+
+            info_conta = self.dados_cadastrais.buscar_conta_bancaria(cpf)
+
+            if chat_id:
+                detalhes_oferta = {
+                    "codigo_tabela": oferta_dados.get("codigo_tabela"),
+                    "prazo": oferta_dados.get("prazo"),
+                    "valor_operacao": oferta_dados.get("valor_liquido"),
+                    "valor_parcela": oferta_dados.get("parcela"),
+                    "matricula": trabalhador.get("matricula"),
+                    "data_admissao": trabalhador.get("dataAdmissao"),
+                    "cnpj_empregador": trabalhador.get("numeroInscricaoEmpregador"),
+                    "dados_bancarios": None
+                }
+
+                if info_conta:
+                    raw_banco = info_conta.get("raw", {})
+                    detalhes_oferta["dados_bancarios"] = {
+                        "banco": raw_banco.get("BANCO"),
+                        "agencia": raw_banco.get("AGENCIA"),
+                        "conta": raw_banco.get("CONTA"),
+                        "tipo_conta": raw_banco.get("TIPO_CONTA")
+                    }
+            
+                self.session_manager.update_context(chat_id, {
+                    "oferta_selecionada": {
+                        "produto": "CLT",
+                        "detalhes": detalhes_oferta
+                    }
+                })
+                logger.info(f"💾 [CLT] Oferta salva no contexto do Chat {chat_id}")
+
+            val_liquido = oferta_dados.get("valor_liquido", 0.0)
+            mes_desconto = obter_mes_inicio_desconto()
+
+            if info_conta:
+                return CreditOffer(
+                    status=AnalysisStatus.APROVADO,
+                    message_key="clt_oferta_disponivel_conta",
+                    valor_liquido=val_liquido,
+                    variables={
+                        "valor": formatar_moeda(val_liquido),
+                        "parcela": formatar_moeda(oferta_dados.get("parcela", 0.0)),
+                        "prazo": str(oferta_dados.get("prazo", 0)),
+                        "mes_desconto": mes_desconto,
+                        "dados_bancarios": info_conta["texto_formatado"]
+                    },
+                    banco_origem="Facta",
+                    raw_details=resultado_raw
+                )
+            else:
+                return CreditOffer(
+                    status=AnalysisStatus.APROVADO,
+                    message_key="clt_oferta_disponivel",
+                    valor_liquido=val_liquido,
+                    variables={
+                        "valor": formatar_moeda(val_liquido),
+                        "parcela": formatar_moeda(oferta_dados.get("parcela", 0.0)),
+                        "prazo": str(oferta_dados.get("prazo", 0)),
+                        "mes_desconto": mes_desconto
+                    },
+                    banco_origem="Facta",
+                    raw_details=resultado_raw
+                )
 
         if motivo == "AGUARDANDO_AUTORIZACAO":
             return CreditOffer(
@@ -85,7 +155,6 @@ class CLTService:
             if motivo == "IDADE_INSUFICIENTE_FACTA":
                 idade = int(resultado_raw.get("idade", 0))
                 sexo = resultado_raw.get("sexo", "")
-
                 margem = float(resultado_raw.get("margem_disponivel", 0.0))
                 admissao = resultado_raw.get("data_admissao")
                 meses_casa = calcular_meses(admissao)
@@ -228,41 +297,4 @@ class CLTService:
                     "erro": msg_tecnica
                     },
                     raw_details=resultado_raw
-                )
-        
-        oferta_dados = resultado_raw.get("oferta", {})
-        val_liquido = oferta_dados.get("valor_liquido", 0.0)
-        mes_desconto = obter_mes_inicio_desconto()
-
-        info_conta = self.dados_cadastrais.buscar_conta_bancaria(cpf)
-
-        if info_conta:
-            return CreditOffer(
-                status=AnalysisStatus.APROVADO,
-                message_key="clt_oferta_disponivel_conta",
-                valor_liquido=val_liquido,
-                variables={
-                    "valor": formatar_moeda(val_liquido),
-                    "parcela": formatar_moeda(oferta_dados.get("parcela", 0.0)),
-                    "prazo": str(oferta_dados.get("prazo", 0)),
-                    "mes_desconto": mes_desconto,
-                    "dados_bancarios": info_conta["texto_formatado"]
-                },
-                banco_origem="Facta",
-                raw_details=resultado_raw
-            )
-            
-        else:
-            return CreditOffer(
-                status=AnalysisStatus.APROVADO,
-                message_key="clt_oferta_disponivel",
-                valor_liquido=val_liquido,
-                variables={
-                    "valor": formatar_moeda(val_liquido),
-                    "parcela": formatar_moeda(oferta_dados.get("parcela", 0.0)),
-                    "prazo": str(oferta_dados.get("prazo", 0)),
-                    "mes_desconto": mes_desconto
-                },
-                banco_origem="Facta",
-                raw_details=resultado_raw
-            )
+                ) 

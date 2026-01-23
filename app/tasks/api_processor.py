@@ -3,6 +3,7 @@ from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
 from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
+from app.services.proposal_service import ProposalService
 from app.integrations.huggy.service import HuggyService
 from app.schemas.credit import AnalysisStatus
 from app.utils.formatters import formatar_moeda
@@ -29,7 +30,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
         fgts_service = FGTSService()
         huggy = HuggyService()
 
-        oferta = fgts_service.consultar_melhor_oportunidade(cpf)
+        oferta = fgts_service.consultar_melhor_oportunidade(cpf, chat_id)
 
         logger.info(f"📤 [Worker FGTS] Resultado: {oferta.status} | Msg: {oferta.message_key} | ChatId: {chat_id}")
 
@@ -61,8 +62,25 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
         )
 
         if oferta.status == AnalysisStatus.APROVADO:
-            huggy.move_to_aprovado(chat_id)
-            huggy.start_auto_distribution(chat_id)
+            detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
+            dados_bancarios = detalhes.get("dados_bancarios")
+
+            possui_conta_valida = (
+                dados_bancarios 
+                and isinstance(dados_bancarios, dict)
+                and dados_bancarios.get("conta") 
+                and dados_bancarios.get("agencia")
+            )
+
+            if possui_conta_valida:
+                logger.info(f"🎯 [Worker FGTS] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
+        
+                huggy.start_flow_digitacao_fgts(chat_id)
+            
+            else:
+                logger.info(f"⚠️ [Worker FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
+                huggy.move_to_aprovado(chat_id)
+                huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
             huggy.start_flow_authorization(chat_id)
@@ -329,4 +347,68 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             HuggyService().start_auto_distribution(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts", bind=True, acks_late=True)
+def executar_digitacao_fgts(self, chat_id: str):
+    """
+    Task responsável por efetivar a proposta na Facta (Digitação).
+    Acionada quando o cliente confirma a contratação.
+    """
+    logger.info(f"✍️ [Worker] Iniciando Digitação FGTS para Chat {chat_id}")
+    huggy = HuggyService()
+
+    try:
+        huggy.send_message(chat_id, message_key="iniciando_digitacao")
+        huggy.move_to_digitacao(chat_id)
+
+        proposal_service = ProposalService()
+        resultado = proposal_service.executar_digitacao_fgts(chat_id)
+
+        url_link = resultado.get("url_formalizacao")
+        codigo_af = resultado.get("codigo")
+
+        if url_link:
+            logger.info(f"✅ [Worker] Sucesso! AF: {codigo_af} | Link: {url_link}")
+
+            msg_interna = f"✅ Proposta Gerada!\n🆔 Código AF: {codigo_af}\n🔗 Link: {url_link}"
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_interna},
+                force_internal=True
+            )
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="link_formalizacao",
+                variables={"link": url_link}
+            )
+
+            huggy.transfer_maria_luiza(chat_id)
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "ag formalizar"},
+                force_internal=True
+            )
         
+        else:
+            raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
+    
+    except Exception as e:
+        try:
+            erro_handler = HuggyService()
+            erro_handler.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+        
+        try:
+            HuggyService().start_auto_distribution(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")

@@ -15,13 +15,15 @@ class HuggyService:
 
         self.workflow_steps = {
             "WORKFLOW_STEP_AG_FORMALIZAR": os.getenv("HUGGY_WORKFLOW_STEP_AG_FORMALIZAR"),
-            "WORKFLOW_STEP_COM_SALDO_FGTS": os.getenv("HUGGY_WORKFLOW_STEP_COM_SALDO_FGTS")
+            "WORKFLOW_STEP_COM_SALDO_FGTS": os.getenv("HUGGY_WORKFLOW_STEP_COM_SALDO_FGTS"),
+            "WORKFLOW_STEP_DIGITACAO": os.getenv("HUGGY_WORKFLOW_STEP_DIGITACAO")
         }
 
         self.flows = {
             "AUTO_DISTRIBUTION": os.getenv("HUGGY_FLOW_AUTO_DISTRIBUTION"),
             "AUTHORIZATION": os.getenv("HUGGY_FLOW_AUTHORIZATION"),
-            "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION")
+            "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION"),
+            "DIGITACAO_FGTS": os.getenv("HUGGY_FLOW_DIGITACAO_FGTS")
         }
 
         self.tabulations = {
@@ -35,6 +37,10 @@ class HuggyService:
             "CLT_RECUSA_DEFINITIVA": os.getenv("HUGGY_CLT_RECUSA_DEFINITIVA"),
             "SEM_MARGEM_CLT": os.getenv("HUGGY_TABULATION_SEM_MARGEM_CLT"),
             "CELETISTA_RESTRICAO": os.getenv("HUGGY_CELETISTA_RESTRICAO"),
+        }
+
+        self.agents = {
+            "MARIA_LUIZA_ID": os.getenv("HUGGY_ID_MARIA_LUIZA")
         }
 
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:
@@ -67,7 +73,15 @@ class HuggyService:
             logger.warning(f"⚠️ Tentativa de mover Chat {chat_id} para AG_FORMALIZAR, mas env var não configurada.")
             return False
         
-        # CORREÇÃO: Chama método do client
+        return self.client.update_workflow_step(chat_id, step_id)
+    
+    def move_to_digitacao(self, chat_id: int) -> bool:
+        """Ação: Mover para etapa Aguardando Formalizar"""
+        step_id = self.workflow_steps.get("WORKFLOW_STEP_DIGITACAO")
+        if not step_id:
+            logger.warning(f"⚠️ Tentativa de mover Chat {chat_id} para AG_FORMALIZAR, mas env var não configurada.")
+            return False
+        
         return self.client.update_workflow_step(chat_id, step_id)
     
     def move_to_aprovado(self, chat_id: int) -> bool:
@@ -77,7 +91,6 @@ class HuggyService:
             logger.warning(f"⚠️ Tentativa de mover Chat {chat_id} para COM_SALDO_FGTS, mas env var não configurada.")
             return False
         
-        # CORREÇÃO: Chama método do client
         return self.client.update_workflow_step(chat_id, step_id)
     
     def start_auto_distribution(self, chat_id: int) -> bool:
@@ -119,11 +132,43 @@ class HuggyService:
         flow_id = self.flows.get("TERM_AUTHORIZATION")
 
         if not flow_id:
-            logger.warning("⚠️ HHUGGY_TERM_AUTHORIZATION não configurado no .env")
+            logger.warning("⚠️ HUGGY_TERM_AUTHORIZATION não configurado no .env")
             return False
         
         try:
             return self.client.trigger_flow(chat_id, int(flow_id))
         except ValueError:
             logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_flow_digitacao_fgts(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de digitação FGTS
+        """
+        flow_id = self.flows.get("DIGITACAO_FGTS")
+
+        if not flow_id:
+            logger.warning("⚠️ HHUGGY_FLOW_DIGITACAO_FGTS não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def transfer_maria_luiza(self, chat_id: Union[int, str], message_internal: str = None) -> bool:
+        """
+        Transfere o chat diretamente para a Maria.
+        """
+        agent_id = self.agents.get("MARIA_LUIZA_ID")
+
+        if not agent_id:
+            logger.warning("⚠️ HUGGY_ID_MARIA_LUIZA não configurado no .env")
+            return False
+
+        try:
+            return self.client.transfer_chat(chat_id, int(agent_id))
+        except ValueError:
+            logger.error(f"❌ ID do Agent inválido no .env: {agent_id}")
             return False

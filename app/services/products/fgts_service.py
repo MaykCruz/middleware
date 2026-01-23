@@ -29,10 +29,42 @@ class FGTSService:
         resultado_raw = self.facta_service.simular_antecipacao(cpf)
 
         if resultado_raw.get("aprovado"):
-            val_liquido = resultado_raw["detalhes"]["valor_liquido"]
+            detalhes = resultado_raw["detalhes"]
+            val_liquido = detalhes["valor_liquido"]
             valor_fmt = formatar_moeda(val_liquido)
 
             info_conta = self.dados_cadastrais.buscar_conta_bancaria(cpf)
+
+            dados_para_salvar = {
+                "valor_liquido": val_liquido,
+                "taxa": detalhes.get("taxa"),
+                "tabela": detalhes.get("tabela"),
+                "simulacao_fgts": detalhes.get("simulacao_id"),
+                "dados_bancarios": None
+            }
+
+            if info_conta:
+                raw_banco = info_conta.get("raw", {})
+                dados_para_salvar["dados_bancarios"] = {
+                    "banco": raw_banco.get("BANCO"),
+                    "agencia": raw_banco.get("AGENCIA"),
+                    "conta": raw_banco.get("CONTA"),
+                    "tipo_conta": raw_banco.get("TIPO_CONTA")
+                }
+            
+            if chat_id:
+                self.session_manager.update_context(chat_id, {
+                    "oferta_selecionada": {
+                        "produto": "FGTS",
+                        "detalhes": dados_para_salvar
+                    }
+                })
+                logger.info(f"💾 [FGTS] Oferta e dados bancários salvos para Chat {chat_id}")
+
+                raw_details_enriquecido = {
+                    **resultado_raw,
+                    "detalhes": dados_para_salvar
+                }
 
             if info_conta:
                 return CreditOffer(
@@ -44,7 +76,7 @@ class FGTSService:
                         "dados_bancarios": info_conta["texto_formatado"]
                     },
                     banco_origem="Facta",
-                    raw_details=resultado_raw
+                    raw_details=raw_details_enriquecido
                 )
 
             else:
@@ -57,7 +89,7 @@ class FGTSService:
                         "valor": formatar_moeda(resultado_raw["detalhes"]["valor_liquido"]),
                         "banco": "Facta"
                     },
-                    raw_details=resultado_raw
+                    raw_details=raw_details_enriquecido
                 )
         
         motivo = resultado_raw.get("motivo")

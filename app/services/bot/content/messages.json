@@ -219,5 +219,11 @@
     },
     "empregador_cpf": {
         "text": "Poxa, analisei aqui e vi que seu registro em carteira está vinculado a um CPF (Pessoa Física). 😕\n\nPara essa linha de crédito, a regra dos bancos exige que o empregador seja uma empresa com CNPJ. Por conta disso, infelizmente não consigo seguir com a liberação para você neste momento."
+    },
+    "iniciando_digitacao": {
+        "text": "Vou digitar sua proposta e já te envio o link para formalização digital!"
+    },
+    "link_formalizacao": {
+        "text": "Segue o link para formalização da proposta, assim que concluir me avise para que eu possa verificar se deu certo!\nCaso precise de ajuda é só me chamar!\n\n{link}"
     }
 }

@@ -1,7 +1,10 @@
+import os
 import re
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
+
+LOGIN_CERTIFICADO_DEFAULT = os.getenv("FACTA_LOGIN_CERTIFICADO")
 
 class FactaBaseModel(BaseModel):
     """Base para adicionar validadores comuns a todos os schemas."""
@@ -22,7 +25,7 @@ class ProposalStep1Base(FactaBaseModel):
     """Campos comuns na Etapa 1 para qualquer produto."""
     cpf: str = Field(..., pattern=r'^\d{11}$', description="CPF apenas números", min_length=11, max_length=11)
     data_nascimento: str = Field(..., description="Formato DD/MM/AAAA")
-    login_certificado: str = Field(..., description="Login do operador certificado")
+    login_certificado: str = Field(default=LOGIN_CERTIFICADO_DEFAULT, description="Login do operador certificado")
 
 class ProposalStep1CLT(ProposalStep1Base):
     """
@@ -69,7 +72,7 @@ class ProposalStep2Base(FactaBaseModel):
     endereco: str
     numero: int
     bairro: str
-    cidade: str
+    cidade: int
     estado: str = Field(..., min_length=2, max_length=2)
     
     nome_mae: str
