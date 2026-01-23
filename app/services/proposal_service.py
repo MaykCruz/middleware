@@ -31,6 +31,9 @@ class ProposalService:
             if not context:
                 raise ValueError("Sessão expirada ou não encontrada.")
             
+            if context.get("cep"):
+                context["cep"] = str(context["cep"]).replace("-", "").replace(".", "").strip()
+            
             cpf = context.get("cpf")
             if not cpf:
                 raise ValueError("CPF não encontrado na sessão.")
