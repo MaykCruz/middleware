@@ -14,7 +14,7 @@ print("=========================================")
 
 load_dotenv()
 
-BROKEN_URL = os.getenv("CELERY_BROKER_URL")
+BROKER_URL = os.getenv("CELERY_BROKER_URL")
 BACKEND_URL = os.getenv("CELERY_RESULT_BACKEND")
 
 # --- CONEXÃO DO BETTER STACK ---
@@ -29,7 +29,7 @@ def init_worker_logger(*args, **kwargs):
 
 celery_app = Celery(
     "worker",
-    broker=BROKEN_URL,
+    broker=BROKER_URL,
     backend=BACKEND_URL,
     include=[
         "app.tasks.processor",
@@ -44,8 +44,14 @@ celery_app.conf.update(
     task_time_limit=120,      # Mata a task se demorar mais de 120s (evita zumbis)
     task_soft_time_limit=110,
     worker_prefetch_multiplier=1, # Garante que tasks longas não travem tasks rápidas
-
     task_default_queue="main-queue",
+
+    broker_transport_options={
+        'visibility_timeout': 300,  # 5 minutos (Default era 3600/1h)
+        'fanout_prefix': True,
+        'fanout_patterns': True
+    },
+
 
     task_routes={
         "process_webhook_event": {"queue": "main-queue"},
