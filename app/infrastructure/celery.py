@@ -4,9 +4,17 @@ from celery.signals import setup_logging, worker_process_init
 from dotenv import load_dotenv
 from app.core.logger import setup_logging as configure_custom_logging
 
+# --- DEDO-DURO DE DEBUG (Apagar depois) ---
+print("=========================================")
+print(f"🕵️ [DEBUG CELERY] PID: {os.getpid()}")
+print(f"🕵️ [DEBUG CELERY] Token no Env: {os.getenv('BETTER_STACK_SOURCE_TOKEN')}")
+print(f"🕵️ [DEBUG CELERY] Log Level: {os.getenv('LOG_LEVEL')}")
+print("=========================================")
+# -------------------------------------------
+
 load_dotenv()
 
-BROKEN_URL = os.getenv("CELERY_BROKEN_URL")
+BROKEN_URL = os.getenv("CELERY_BROKER_URL")
 BACKEND_URL = os.getenv("CELERY_RESULT_BACKEND")
 
 # --- CONEXÃO DO BETTER STACK ---
