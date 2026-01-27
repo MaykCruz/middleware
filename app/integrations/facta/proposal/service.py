@@ -4,7 +4,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from app.integrations.facta.proposal.client import FactaProposalClient
-from app.integrations.facta.proposal.schemas import ProposalStep1FGTS, ProposalStep2Base
+from app.integrations.facta.proposal.schemas import ProposalStep1FGTS, ProposalStep2Base, ProposalStep1CLT, ProposalStep2CLT
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 from app.services.data_manager import DataManager
 
@@ -122,6 +122,14 @@ class FactaProposalService:
         payload = ProposalStep1FGTS(**dados)
         return self.client.registrar_etapa_1_simulacao(payload.model_dump())
     
+    def _step1_simulacao_clt(self, dados: Dict[str, Any]) -> int:
+        payload = ProposalStep1CLT(**dados)
+        return self.client.registrar_etapa_1_simulacao(payload.model_dump())
+    
+    def _step2_dados_pessoais_clt(self, dados: Dict[str, Any]) -> int:
+        payload = ProposalStep2CLT(**dados)
+        return self.client.registrar_etapa_2_dados_pessoais(payload.model_dump())
+    
     def _step2_dados_pessoais(self, dados: Dict[str, Any]) -> int:
         payload = ProposalStep2Base(**dados)
         return self.client.registrar_etapa_2_dados_pessoais(payload.model_dump())
@@ -155,4 +163,41 @@ class FactaProposalService:
 
         resultado = self._step3_finalizacao(codigo_cliente, id_simulador)
 
+        return resultado
+    
+    def processar_digitacao_clt(self, cpf: str, dados_oferta: Dict[str, Any], dados_contexto: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Orquestra a Digitação CLT.
+        Exige: codigo_tabela, prazo, valor, dados empregatícios no contexto.
+        """
+        logger.info(f"🤖 [Facta] Iniciando esteira CLT para {cpf}")
+
+        dados_api = self.consulta_dados.consultar_dados_completos(cpf)
+        if not dados_api:
+            raise ValueError(f"Cliente não encontrado na Facta: {cpf}")
+        
+        nasc_br = self._converter_data(dados_api.get("DATANASCIMENTO"))
+
+        dados_step1 = {
+            "cpf": cpf,
+            "data_nascimento": nasc_br,
+            "codigo_tabela": int(dados_oferta.get("codigo_tabela")),
+            "prazo": int(dados_oferta.get("prazo")),
+            "valor_operacao": float(dados_oferta.get("valor_operacao")),
+            "valor_parcela": float(dados_oferta.get("valor_parcela")),
+            "coeficiente": float(dados_oferta.get("coeficiente") or 0)
+        }
+        id_simulador = self._step1_simulacao_clt(dados_step1)
+        logger.info(f"✅ Step 1 (CLT) OK. ID: {id_simulador}")
+
+        payload_base = self._mapear_dados_api_para_schema(cpf, dados_api, id_simulador, dados_contexto)
+
+        payload_base["matricula"] = str(dados_contexto.get("matricula", ""))
+        payload_base["data_admissao"] = self._converter_data(str(dados_contexto.get("data_admissao", "")))
+        payload_base["cnpj_empregador"] = str(dados_contexto.get("cnpj_empregador", ""))
+
+        codigo_cliente = self._step2_dados_pessoais_clt(payload_base)
+        logger.info(f"✅ Step 2 (CLT) OK. Cli: {codigo_cliente}")
+
+        resultado = self._step3_finalizacao(codigo_cliente, id_simulador)
         return resultado

@@ -412,3 +412,68 @@ def executar_digitacao_fgts(self, chat_id: str):
             HuggyService().start_auto_distribution(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt", bind=True, acks_late=True)
+def executar_digitacao_clt(self, chat_id: str):
+    """
+    Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
+    """
+    logger.info(f"✍️ [Worker] Iniciando Digitação CLT para Chat {chat_id}")
+    huggy = HuggyService()
+
+    try:
+        huggy.send_message(chat_id, message_key="iniciando_digitacao")
+        huggy.move_to_digitacao(chat_id)
+
+        proposal_service = ProposalService()
+        resultado = proposal_service.executar_digitacao_clt(chat_id)
+
+        url_link = resultado.get("url_formalizacao")
+        codigo_af = resultado.get("codigo")
+
+        if url_link:
+            logger.info(f"✅ [Worker] Sucesso CLT! AF: {codigo_af} | Link: {url_link}")
+
+            msg_interna = f"✅ Proposta CLT Gerada!\n🆔 Código AF: {codigo_af}\n🔗 Link: {url_link}"
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_interna},
+                force_internal=True
+            )
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="link_formalizacao",
+                variables={"link": url_link}
+            )
+
+            huggy.transfer_maria_luiza(chat_id)
+
+            huggy.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "ag formalizar"},
+                force_internal=True
+            )
+
+        else:
+            raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
+    
+    except Exception as e:
+        try:
+            erro_handler = HuggyService()
+            erro_handler.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+        
+        try:
+            HuggyService().start_auto_distribution(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+            
