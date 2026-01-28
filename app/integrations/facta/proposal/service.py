@@ -191,10 +191,13 @@ class FactaProposalService:
         logger.info(f"✅ Step 1 (CLT) OK. ID: {id_simulador}")
 
         payload_base = self._mapear_dados_api_para_schema(cpf, dados_api, id_simulador, dados_contexto)
+        oferta = dados_contexto.get("oferta_selecionada", {}) 
+        detalhes = oferta.get("detalhes", {})
 
-        payload_base["matricula"] = str(dados_contexto.get("matricula", ""))
-        payload_base["data_admissao"] = self._converter_data(str(dados_contexto.get("data_admissao", "")))
-        payload_base["cnpj_empregador"] = str(dados_contexto.get("cnpj_empregador", ""))
+
+        payload_base["matricula"] = str(detalhes.get("matricula", ""))
+        payload_base["data_admissao"] = self._converter_data(str(detalhes.get("data_admissao", "")))
+        payload_base["cnpj_empregador"] = str(detalhes.get("cnpj_empregador", ""))
 
         codigo_cliente = self._step2_dados_pessoais_clt(payload_base)
         logger.info(f"✅ Step 2 (CLT) OK. Cli: {codigo_cliente}")

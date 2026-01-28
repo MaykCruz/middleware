@@ -144,7 +144,7 @@ class FactaCLTService:
 
                 logger.info(f"🏢 [CLT] Empresa iniciou em {data_inicio_empresa} ({tempo_empresa_meses} meses).")
 
-                if tempo_empresa_meses < 3:
+                if tempo_empresa_meses < 24:
                     return {
                         "aprovado": False,
                         "motivo": "EMPRESA_RECENTE",
@@ -330,7 +330,7 @@ class FactaCLTService:
             data_inicio_empresa = trab.get("dataInicioAtividadeEmpregador")
             tempo_empresa_meses = calcular_meses(data_inicio_empresa)
 
-            if tempo_empresa_meses < 3:
+            if tempo_empresa_meses < 24:
                  return {
                     "aprovado": False,
                     "motivo": "EMPRESA_RECENTE",
@@ -367,8 +367,9 @@ class FactaCLTService:
                 "valor_liquido": valor_liberado,
                 "parcela": float(melhor_opcao.get("parcela")),
                 "prazo": int(melhor_opcao.get("prazo")),
-                "tabela_nome": melhor_opcao.get("descricao", "Padrão"),
+                "tabela_nome": melhor_opcao.get("tabela", "Padrão"),
                 "codigo_tabela": melhor_opcao.get("codigoTabela"),
+                "coeficiente": melhor_opcao.get("coeficiente"),
                 "dados_trabalhador": trab # Repassando dados para eventual confirmação
             }
         }
@@ -408,8 +409,9 @@ class FactaCLTService:
                 "valor_liquido": float(melhor_opcao.get("valor_liquido")),
                 "parcela": float(melhor_opcao.get("parcela")),
                 "prazo": int(melhor_opcao.get("prazo")),
-                "tabela_nome": melhor_opcao.get("descricao", "Padrão Ajustada"),
+                "tabela_nome": melhor_opcao.get("tabela", "Padrão Ajustada"),
                 "codigo_tabela": melhor_opcao.get("codigoTabela"),
+                "coeficiente": melhor_opcao.get("coeficiente"),
                 "dados_trabalhador": trab
             }
         }

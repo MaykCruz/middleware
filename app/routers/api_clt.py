@@ -19,6 +19,9 @@ class SimulacaoCLTRequest(BaseModel):
 class VerificarAuthRequest(BaseModel):
     chat_id: str = Field(..., description="ID do chat para recuperar contexto")
 
+class ContratacaoCLTRequest(BaseModel):
+    chat_id: str = Field(..., description="ID do chat para recuperar contexto e efetivar")
+
 @router.post("/simular")
 async def iniciar_simulacao_clt(
     request: SimulacaoCLTRequest,
@@ -137,4 +140,28 @@ async def verificar_autorizacao_clt(
         "code": "sucesso",
         "task_id": task.id,
         "message": "Reconsulta de autorização iniciada."
+    }
+
+@router.post("/contratar")
+async def contratar_clt(
+    request: ContratacaoCLTRequest,
+    x_token: str = Header(None)
+):
+    """
+    Dispara a esteira de contratação (Digitação Facta).
+    Deve ser chamado quando o cliente confirma o aceite da proposta.
+    """
+    logger.info(f"✍️ [API CLT] Recebida solicitação de CONTRATAÇÃO para Chat {request.chat_id}")
+
+    task = celery_app.send_task(
+        "app.tasks.api_processor.executar_digitacao_clt",
+        kwargs={"chat_id": request.chat_id}
+    )
+
+    return {
+        "status": "PROCESSANDO_DIGITACAO",
+        "code": "sucesso",
+        "product": "CLT",
+        "task_id": task.id,
+        "message": "Processo de contratação CLT iniciado."
     }

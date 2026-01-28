@@ -107,5 +107,5 @@ async def contratar_fgts(
         "code": "sucesso",
         "product": "FGTS",
         "task_id": task.id,
-        "message": "Processo de contratação iniciado."
+        "message": "Processo de contratação FGTS iniciado."
     }

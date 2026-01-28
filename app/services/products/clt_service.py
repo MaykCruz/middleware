@@ -41,6 +41,7 @@ class CLTService:
                     "prazo": oferta_dados.get("prazo"),
                     "valor_operacao": oferta_dados.get("valor_liquido"),
                     "valor_parcela": oferta_dados.get("parcela"),
+                    "coeficiente": oferta_dados.get("coeficiente"),
                     "matricula": trabalhador.get("matricula"),
                     "data_admissao": trabalhador.get("dataAdmissao"),
                     "cnpj_empregador": trabalhador.get("numeroInscricaoEmpregador"),
@@ -191,8 +192,8 @@ class CLTService:
                 if 21 <= idade <= 60 and meses_casa >= 6 and meses_empresa >= 24:
                     sugestoes.append("C6 Bank (21-60)")
                 
-                # V8: 21-65 | Casa >= 3 | Empresa >= 3
-                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 3:
+                # V8: 21-65 | Casa >= 3 | Empresa >= 36
+                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 36:
                     sugestoes.append("V8 (21-65)")
                 
                 if sugestoes:
