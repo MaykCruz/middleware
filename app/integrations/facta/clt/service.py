@@ -115,26 +115,28 @@ class FactaCLTService:
 
         if resp_politica["status"] != "SUCESSO":
 
-            if margem <= 50.00:
-                logger.info(f"🚫 [CLT] Reprovado Política Facta e margem baixa ({margem}). Encerrando.")
-                return {
-                    "aprovado": False,
-                    "motivo": "SEM_MARGEM",
-                    "msg_tecnica": f"Reprovado na política Facta e margem R$ {margem} insuficiente para outros bancos."
-                }
-
             if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
                 data_admissao = trabalhador.get("dataAdmissao")
                 tempo_trabalho = calcular_meses(data_admissao)
                 texto_admissao = formatar_display_tempo(data_admissao)
+            
+                margem_minima_distribuicao = 100.00 if tempo_trabalho < 12 else 50.00
 
+                if margem < margem_minima_distribuicao:
+                    logger.info(f"🚫 [CLT] Reprovado Facta e margem baixa ({margem}). Min: {margem_minima_distribuicao}. Encerrando.")
+                    return {
+                        "aprovado": False,
+                        "motivo": "SEM_MARGEM",
+                        "msg_tecnica": f"Reprovado na política Facta e margem R$ {margem} insuficiente para transbordo (Mínimo: {margem_minima_distribuicao})."
+                    }
+                
                 logger.info(f"🧐 [CLT] Reprovado Facta. Tempo de casa: {tempo_trabalho} meses.")
-
-                if tempo_trabalho < 6:
+            
+                if tempo_trabalho < 3:
                     return {
                         "aprovado": False,
                         "motivo": "MENOS_SEIS_MESES",
-                        "msg_tecnica": "Tempo de trabalho inferior a 6 meses."
+                        "msg_tecnica": "Tempo de trabalho inferior a 3 meses (Mínimo exigido pelo mercado)."
                     }
                 
                 data_inicio_empresa = trabalhador.get("dataInicioAtividadeEmpregador")
@@ -142,11 +144,11 @@ class FactaCLTService:
 
                 logger.info(f"🏢 [CLT] Empresa iniciou em {data_inicio_empresa} ({tempo_empresa_meses} meses).")
 
-                if tempo_empresa_meses <= 22:
+                if tempo_empresa_meses < 3:
                     return {
                         "aprovado": False,
                         "motivo": "EMPRESA_RECENTE",
-                        "msg_tecnica": f"Empresa empregadora com apenas {tempo_empresa_meses} meses de atividade (Mínimo exigido pelos bancos: 24+)." 
+                        "msg_tecnica": f"Empresa empregadora muito recente ({tempo_empresa_meses} meses)."
                     }
                 
                 margem_disp = parse_valor_monetario(trabalhador.get("valorMargemDisponivel", 0))
@@ -156,7 +158,8 @@ class FactaCLTService:
                     f"{msg_base}\n"
                     f"📊 *Dados para análise:*\n"
                     f"• Margem: R$ {formatar_moeda(margem_disp)}\n"
-                    f"• Admissão: {texto_admissao}"
+                    f"• Admissão: {texto_admissao}\n"
+                    f"• Empresa: {formatar_display_tempo(data_inicio_empresa)}"
                 )
 
                 return {
@@ -168,7 +171,8 @@ class FactaCLTService:
             return {
                 "aprovado": False,
                 "motivo": resp_politica["status"],
-                "msg_tecnica": resp_politica.get("msg_original")
+                "msg_tecnica": resp_politica.get("msg_original"),
+                "dados_trabalhador": trabalhador
             }
         
         politica = resp_politica["dados"]
@@ -257,7 +261,8 @@ class FactaCLTService:
                 "idade": idade,
                 "sexo": sexo,
                 "margem_disponivel": margem,
-                "data_admissao": admissao
+                "data_admissao": admissao,
+                "dados_trabalhador": dados
             }
 
         if margem <= 20.00:
@@ -303,18 +308,50 @@ class FactaCLTService:
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
 
         if not oferta_encontrada:
+            data_admissao = trab.get("dataAdmissao")
+            tempo_trabalho = calcular_meses(data_admissao)
 
-            if margem_real <= 50.00:
+            margem_minima_distribuicao = 100.00 if tempo_trabalho < 12 else 50.00
+
+            if margem_real < margem_minima_distribuicao:
                 return {
                     "aprovado": False,
                     "motivo": "SEM_MARGEM",
-                    "msg_tecnica": f"Sem oferta Facta e margem R$ {margem_real} insuficiente para transbordo."
+                    "msg_tecnica": f"Sem oferta Facta e margem R$ {margem_real} insuficiente para transbordo (Mínimo: {margem_minima_distribuicao})."
                 }
+            
+            if tempo_trabalho < 3:
+                return {
+                    "aprovado": False,
+                    "motivo": "MENOS_SEIS_MESES", 
+                    "msg_tecnica": "Sem oferta Facta e tempo de trabalho inferior a 3 meses (Inviável para outros bancos)."
+                }
+            
+            data_inicio_empresa = trab.get("dataInicioAtividadeEmpregador")
+            tempo_empresa_meses = calcular_meses(data_inicio_empresa)
+
+            if tempo_empresa_meses < 3:
+                 return {
+                    "aprovado": False,
+                    "motivo": "EMPRESA_RECENTE",
+                    "msg_tecnica": f"Sem oferta Facta e empresa muito recente ({tempo_empresa_meses} meses)." 
+                }
+            
+            texto_admissao = formatar_display_tempo(data_admissao)
+
+            msg_enriquecida = (
+                f"{msg_falha}\n"
+                f"📊 *Dados para análise:*\n"
+                f"• Margem: R$ {formatar_moeda(margem_real)}\n"
+                f"• Admissão: {texto_admissao}\n"
+                f"• Empresa: {formatar_display_tempo(data_inicio_empresa)}"
+            )
             
             return {
                 "aprovado": False,
                 "motivo": motivo_falha,
-                "msg_tecnica": msg_falha
+                "msg_tecnica": msg_enriquecida,
+                "dados_trabalhador": trab
             }
             
         valor_liberado = float(melhor_opcao.get("valor_liquido", 0))

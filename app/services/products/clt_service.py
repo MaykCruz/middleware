@@ -156,10 +156,16 @@ class CLTService:
                 idade = int(resultado_raw.get("idade", 0))
                 sexo = resultado_raw.get("sexo", "")
                 margem = float(resultado_raw.get("margem_disponivel", 0.0))
-                admissao = resultado_raw.get("data_admissao")
+
+                dados_trab = resultado_raw.get("dados_trabalhador", {})
+
+                admissao = resultado_raw.get("data_admissao") or dados_trab.get("dataAdmissao")
                 meses_casa = calcular_meses(admissao)
 
-                margem_minima_distribuir = 50.00
+                inicio_empresa = dados_trab.get("dataInicioAtividadeEmpregador")
+                meses_empresa = calcular_meses(inicio_empresa)
+
+                margem_minima_distribuir = 100.00 if meses_casa < 12 else 50.00
 
                 if margem <= margem_minima_distribuir:
                     return CreditOffer(
@@ -167,27 +173,27 @@ class CLTService:
                         message_key="sem_margem_cliente",
                         raw_details={
                             **resultado_raw,
-                            "msg_tecnica": f"Idade não enquadra Facta e margem baixa ({formatar_moeda(margem)}) para distribuir."
+                            "msg_tecnica": f"Margem R$ {formatar_moeda(margem)} insuficiente. (Mínimo exigido: R$ {margem_minima_distribuir} p/ {meses_casa} meses de casa)."
                         }
                     )
 
                 sugestoes = []
-
-                # HUB: 18 a 50
-                if 18 <= idade <=50:
-                    sugestoes.append("HUB (18-50)")
                 
-                # Mercantil: 20 a 58
-                if 20 <= idade <= 58 and meses_casa >= 12:
+                # Mercantil: 20-58 | Casa >= 12 | Empresa >= 36
+                if 20 <= idade <= 58 and meses_casa >= 12 and meses_empresa >= 36:
                     sugestoes.append("Mercantil (20-58)")
                 
-                # C6: 21 a 60
-                if 21 <= idade <= 60:
-                    sugestoes.append("C6 (21-60)")
+                # Presença: 21-65 | Casa >= 3 | Empresa >= 36
+                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 36:
+                    sugestoes.append("Presença (21-65)")
                 
-                # V8/Presença: 21 a 65
-                if 21 <= idade <= 65:
-                    sugestoes.append("V8/Presença (21-65)")
+                # C6 Bank: 21-60 | Casa >= 6 | Empresa >= 24
+                if 21 <= idade <= 60 and meses_casa >= 6 and meses_empresa >= 24:
+                    sugestoes.append("C6 Bank (21-60)")
+                
+                # V8: 21-65 | Casa >= 3 | Empresa >= 3
+                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 3:
+                    sugestoes.append("V8 (21-65)")
                 
                 if sugestoes:
                     texto_sugestao = ", ".join(sugestoes)
