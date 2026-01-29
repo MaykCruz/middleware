@@ -69,6 +69,13 @@ class CLTService:
             mes_desconto = obter_mes_inicio_desconto()
 
             if info_conta:
+                raw_banco = info_conta.get("raw", {})
+                resultado_raw["dados_bancarios"] = {
+                    "banco": raw_banco.get("BANCO"),
+                    "agencia": raw_banco.get("AGENCIA"),
+                    "conta": raw_banco.get("CONTA"),
+                    "tipo_conta": raw_banco.get("TIPO_CONTA")
+                }
                 return CreditOffer(
                     status=AnalysisStatus.APROVADO,
                     message_key="clt_oferta_disponivel_conta",

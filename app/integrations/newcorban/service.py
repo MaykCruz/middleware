@@ -117,9 +117,9 @@ class NewCorbanService:
                     }
                 },
                 "proposta": {
-                    "documento_id": dados_facta.get("RG"), # NewCorban usa o número do doc como ID? Mantive seu padrão.
-                    # "endereco_id": dados_facta.get("CEP"), # Isso pode dar conflito se 2 clientes tiverem mesmo CEP.
-                    # "telefone_id": telefone_sem_ddd,
+                    "documento_id": dados_facta.get("RG"),
+                    "endereco_id": dados_facta.get("CEP"), 
+                    "telefone_id": telefone_sem_ddd,
                     "banco_averbacao": dados_facta.get("BANCO"),
                     "agencia": dados_facta.get("AGENCIA"),
                     "conta": conta,

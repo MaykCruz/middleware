@@ -23,7 +23,8 @@ class HuggyService:
             "AUTO_DISTRIBUTION": os.getenv("HUGGY_FLOW_AUTO_DISTRIBUTION"),
             "AUTHORIZATION": os.getenv("HUGGY_FLOW_AUTHORIZATION"),
             "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION"),
-            "DIGITACAO_FGTS": os.getenv("HUGGY_FLOW_DIGITACAO_FGTS")
+            "DIGITACAO_FGTS": os.getenv("HUGGY_FLOW_DIGITACAO_FGTS"),
+            "DIGITACAO_CLT": os.getenv("HUGGY_FLOW_DIGITACAO_CLT")
         }
 
         self.tabulations = {
@@ -149,6 +150,22 @@ class HuggyService:
 
         if not flow_id:
             logger.warning("⚠️ HHUGGY_FLOW_DIGITACAO_FGTS não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_flow_digitacao_clt(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de digitação CLT
+        """
+        flow_id = self.flows.get("DIGITACAO_CLT")
+
+        if not flow_id:
+            logger.warning("⚠️ HHUGGY_FLOW_DIGITACAO_CLT não configurado no .env")
             return False
         
         try:

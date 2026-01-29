@@ -192,8 +192,25 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         )
 
         if oferta.status == AnalysisStatus.APROVADO:
-            huggy.move_to_aprovado(chat_id)
-            huggy.start_auto_distribution(chat_id)
+            detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
+            dados_bancarios = detalhes.get("dados_bancarios")
+
+            possui_conta_valida = (
+                dados_bancarios 
+                and isinstance(dados_bancarios, dict)
+                and dados_bancarios.get("conta") 
+                and dados_bancarios.get("agencia")
+            )
+
+            if possui_conta_valida:
+                logger.info(f"🎯 [Worker CLT] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
+        
+                huggy.start_flow_digitacao_clt(chat_id)
+            
+            else:
+                logger.info(f"⚠️ [Worker CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
+                huggy.move_to_aprovado(chat_id)
+                huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             huggy.start_flow_wait_term(chat_id)
