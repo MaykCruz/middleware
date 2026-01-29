@@ -54,9 +54,14 @@ def limpar_nome(nome: str) -> str:
     Remove emojis, símbolos e caracteres especiais, mantendo apenas letras e espaços.
     """
     if not nome:
-        return "nao informado"
+        return "Cliente (Nome não informado)"
     
-    return re.sub(r'[^a-zA-ZÀ-ÿ\s]', '', str(nome)).strip()
+    limpo = re.sub(r'[^a-zA-ZÀ-ÿ\s]', '', str(nome)).strip()
+
+    if not limpo:
+        return "Cliente (Nome não informado)"
+
+    return limpo
 
 def formatar_display_tempo(data_str: str) -> str:
     """
