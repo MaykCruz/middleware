@@ -16,7 +16,8 @@ class HuggyService:
         self.workflow_steps = {
             "WORKFLOW_STEP_AG_FORMALIZAR": os.getenv("HUGGY_WORKFLOW_STEP_AG_FORMALIZAR"),
             "WORKFLOW_STEP_COM_SALDO_FGTS": os.getenv("HUGGY_WORKFLOW_STEP_COM_SALDO_FGTS"),
-            "WORKFLOW_STEP_DIGITACAO": os.getenv("HUGGY_WORKFLOW_STEP_DIGITACAO")
+            "WORKFLOW_STEP_DIGITACAO": os.getenv("HUGGY_WORKFLOW_STEP_DIGITACAO"),
+            "WORKFLOW_STEP_SIMULAR_OUTROS_BANCOS": os.getenv("HUGGY_WORKFLOW_STEP_SIMULAR_OUTROS_BANCOS")
         }
 
         self.flows = {
@@ -81,6 +82,15 @@ class HuggyService:
         step_id = self.workflow_steps.get("WORKFLOW_STEP_DIGITACAO")
         if not step_id:
             logger.warning(f"⚠️ Tentativa de mover Chat {chat_id} para AG_FORMALIZAR, mas env var não configurada.")
+            return False
+        
+        return self.client.update_workflow_step(chat_id, step_id)
+    
+    def move_to_simular_outros_bancos(self, chat_id: int) -> bool:
+        """Ação: Mover para etapa Aguardando Formalizar"""
+        step_id = self.workflow_steps.get("WORKFLOW_STEP_SIMULAR_OUTROS_BANCOS")
+        if not step_id:
+            logger.warning(f"⚠️ Tentativa de mover Chat {chat_id} para SIMULAR_OUTROS_BANCOS, mas env var não configurada.")
             return False
         
         return self.client.update_workflow_step(chat_id, step_id)

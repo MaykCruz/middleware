@@ -256,6 +256,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             variables={"sugestao": sugestao},
             force_internal=True)
             huggy.start_auto_distribution(chat_id)
+            huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE:
             idade = oferta.raw_details.get("idade")
@@ -288,6 +289,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             variables={"blank": msg_tecnica},
             force_internal=True)
             huggy.start_auto_distribution(chat_id)
+            huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.LIMITE_CONTRATOS:
             msg_tecnica = oferta.raw_details.get("msg_tecnica")
@@ -320,6 +322,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             variables={"blank": msg_tecnica},
             force_internal=True)
             huggy.start_auto_distribution(chat_id)
+            huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.VIRADA_FOLHA:
             huggy.send_message(chat_id=chat_id,
