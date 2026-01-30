@@ -113,11 +113,18 @@ class CLTService:
             )
         
         if motivo == "TERMO_AINDA_PENDENTE":
+            # return CreditOffer(
+            #     status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
+            #     message_key="clt_termo_nao_identificado",
+            #     raw_details=resultado_raw
+            # )
             return CreditOffer(
-                status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
-                message_key="clt_termo_nao_identificado",
-                raw_details=resultado_raw
-            )
+                    status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
+                    message_key="blank",
+                    variables={"blank": msg_tecnica},
+                    is_internal=True,
+                    raw_details=resultado_raw
+                )
         
         if not aprovado:
             if motivo == "TELEFONE_VINCULADO_OUTRO_CPF":

@@ -183,6 +183,39 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                     force_internal=oferta.is_internal
                 )
             raise self.retry(countdown=COUNTDOWN, max_retries=MAX_RETRIES)
+        
+        elif oferta.status == AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO:
+            MAX_AUTH_RETRIES = 10
+            AUTH_DELAY = 30
+
+            if self.request.retries < MAX_AUTH_RETRIES:
+                if self.request.retries == 0 or self.request.retries % 3 == 0:
+                    logger.info(f"🔄 [Termos] Autorização ainda não caiu. Retentando em {AUTH_DELAY}s... ({tentativa_atual}/{MAX_AUTH_RETRIES})")
+                    msg_original = oferta.variables.get("blank", "Processamento pendente.")
+
+                    msg_enriquecida = (
+                        f"{msg_original}\n\n"
+                        f"⏳ *Autorização do termo não identificada:*\n"
+                        f"Reconsultando em {COUNTDOWN}s... (Tentativa {tentativa_atual}/{MAX_RETRIES})"
+                    )
+
+                    oferta.variables["blank"] = msg_enriquecida
+
+                    huggy.send_message(
+                        chat_id=chat_id,
+                        message_key=oferta.message_key,
+                        variables=oferta.variables,
+                        force_internal=oferta.is_internal
+                    )
+
+                raise self.retry(countdown=AUTH_DELAY, max_retries=MAX_AUTH_RETRIES)
+            
+            else:
+                huggy.send_message(
+                    chat_id=chat_id,
+                    message_key="clt_termo_nao_identificado"
+                )
+                huggy.start_auto_distribution(chat_id)
 
         huggy.send_message(
             chat_id=chat_id,
@@ -215,8 +248,6 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             huggy.start_flow_wait_term(chat_id)
         
-        elif oferta.status == AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO:
-            huggy.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
             huggy.start_auto_distribution(chat_id)
