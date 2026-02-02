@@ -25,7 +25,7 @@
         "text": "Realizei a simulação e *R$ {valor}* estão liberados! 💸\nEsse valor libera em sua conta ainda hoje!\n\nPara prosseguirmos basta enviar sua chave pix!"
     },
     "com_saldo_conta": {
-        "text": "Realizei a simulação e *R$ {valor}* estão liberados! 💸\nEsse valor libera em sua conta ainda hoje!\n\nPosso prosseguir com a liberação na sua conta abaixo?\n\n{dados_bancarios}",
+        "text": "Realizei a simulação e *R$ {valor}* estão liberados! 💸\nEsse valor libera em sua conta ainda hoje!\n\nPara prosseguir com a liberação na sua conta abaixo, clique em *Pode prosseguir*!\n\n{dados_bancarios}",
         "options": [
             {
                 "id": "1",
@@ -66,7 +66,8 @@
         "file": "https://i.postimg.cc/0y4W7r2R/passo_a_passo.jpg"
     },
     "sem_adesao": {
-        "text": "Verifiquei que você ainda não aderiu ao saque aniversário do FGTS, irei te encaminhar para um atendente auxiliá-lo pelo app!"
+        "text": "Olá! 👋 Fiz a simulação aqui e notei que o seu FGTS ainda não está na modalidade *Saque-Aniversário*. Para conseguirmos antecipar, é necessário fazer essa troca no app do FGTS.\n\n⚠️ *Um aviso importante sobre as novas regras:* Agora, após realizar essa troca de modalidade, o sistema do governo exige um prazo de *90 dias de carência* para liberar a antecipação.\n\nEstou enviando uma imagem com o passo a passo. Recomendo que você já faça a troca agora para começar a contar esse prazo o quanto antes, tudo bem?",
+        "file": "https://i.postimg.cc/gkKjRThw/aderir.png"
     },
     "mudancas_cadastrais": {
         "text": "Realizei a simulação e consta que foram feitas Mudanças Cadastrais na sua conta do FGTS que impedem de prosseguir com a liberação.\n\nProvavelmente a Caixa realizou alguma atualização automática em seus dados, vamos aguardar geralmente demora de 2 ou 3 dias para atualizar!\n\nMas não se preocupe, iremos consultar todos os dias para verificar se já liberou !!!"
@@ -197,7 +198,7 @@
         "text": "{blank}"
     },
     "menos_seis_meses": {
-        "text": "Infelizmente não será possível a liberação do Consignado CLT, pois para a contratação é preciso ter, pelo menos, 6 meses de registro em carteira no emprego atual!"
+        "text": "Infelizmente não será possível a liberação do Consignado CLT, pois para a contratação é preciso ter, pelo menos, 3 meses de registro em carteira no emprego atual!"
     },
     "clt_termo_nao_identificado": {
         "text": "Ainda não identifiquei a autorização no sistema da Facta. 😕\n\nÀs vezes demora alguns segundos para processar.\n\n1. Verifique se concluiu o aceite no link do SMS/WhatsApp.\n2. Aguarde uns instantes e clique abaixo novamente.",

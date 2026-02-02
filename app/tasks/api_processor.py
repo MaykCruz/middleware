@@ -86,7 +86,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             huggy.start_flow_authorization(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_ADESAO:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_flow_sem_adesao(chat_id)
         
         elif oferta.status == AnalysisStatus.MUDANCAS_CADASTRAIS:
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("MUDANCAS_CADASTRAIS"))

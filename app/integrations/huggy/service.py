@@ -25,7 +25,8 @@ class HuggyService:
             "AUTHORIZATION": os.getenv("HUGGY_FLOW_AUTHORIZATION"),
             "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION"),
             "DIGITACAO_FGTS": os.getenv("HUGGY_FLOW_DIGITACAO_FGTS"),
-            "DIGITACAO_CLT": os.getenv("HUGGY_FLOW_DIGITACAO_CLT")
+            "DIGITACAO_CLT": os.getenv("HUGGY_FLOW_DIGITACAO_CLT"),
+            "SEM_ADESAO": os.getenv("HUGGY_FLOW_SEM_ADESAO")
         }
 
         self.tabulations = {
@@ -143,7 +144,23 @@ class HuggyService:
         flow_id = self.flows.get("TERM_AUTHORIZATION")
 
         if not flow_id:
-            logger.warning("⚠️ HUGGY_TERM_AUTHORIZATION não configurado no .env")
+            logger.warning("⚠️ HUGGY_FLOW_TERM_AUTHORIZATION não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_flow_sem_adesao(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de Sem adesão pré cadastrado Huggy.
+        """
+        flow_id = self.flows.get("SEM_ADESAO")
+
+        if not flow_id:
+            logger.warning("⚠️ HUGGY_FLOW_SEM_ADESAO não configurado no .env")
             return False
         
         try:

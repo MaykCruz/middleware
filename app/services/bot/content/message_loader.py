@@ -21,7 +21,7 @@ class MessageLoader:
 
     @classmethod
     def load_local(cls):
-        """Carrega do arquivo físico (Fallback de segurança)"""
+        """Carrega do arquivo físico (Fallback de segurança ou Modo DEV)"""
         if cls._loaded:
             return cls._local_messages
         
@@ -58,6 +58,11 @@ class MessageLoader:
     
     @classmethod
     def get(cls, key: str) -> dict:
+        usar_gist = os.getenv("LOAD_MESSAGES_FROM_GIST", "true").lower() == "true"
+
+        if not usar_gist:
+            return cls.load_local().get(key, {})
+
         r = cls._get_redis()
 
         try:
