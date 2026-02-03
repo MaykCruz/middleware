@@ -250,7 +250,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         
         
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_flow_telefone_vinculado(chat_id)
         
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
             huggy.start_auto_distribution(chat_id)

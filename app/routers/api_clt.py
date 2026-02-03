@@ -22,6 +22,10 @@ class VerificarAuthRequest(BaseModel):
 class ContratacaoCLTRequest(BaseModel):
     chat_id: str = Field(..., description="ID do chat para recuperar contexto e efetivar")
 
+class AtualizarTelefoneRequest(BaseModel):
+    chat_id: str = Field(..., description="ID do chat")
+    novo_telefone: str = Field(..., description="Novo telefone informado pelo cliente")
+
 @router.post("/simular")
 async def iniciar_simulacao_clt(
     request: SimulacaoCLTRequest,
@@ -140,6 +144,62 @@ async def verificar_autorizacao_clt(
         "code": "sucesso",
         "task_id": task.id,
         "message": "Reconsulta de autorização iniciada."
+    }
+
+@router.post("/atualizar-telefone")
+async def atualizar_telefone_clt(
+    request: AtualizarTelefoneRequest,
+    x_token: str = Header(None)
+):
+    """
+    Recebe o novo telefone do Flow de correção e reinicia a simulação.
+    """
+    logger.info(f"🔄 [API CLT] Atualizando telefone para Chat {request.chat_id}: {request.novo_telefone}")
+
+    session = SessionManager()
+
+    contexto = session.get_context(request.chat_id)
+
+    if not contexto or not contexto.get("cpf"):
+        logger.warning(f"⚠️ [API CLT] Contexto perdido durante troca de telefone. Chat {request.chat_id}")
+        return {
+            "status": "ERRO",
+            "code": "sessao_expirada",
+            "message": "Sessão expirada. Reinicie o atendimento informando o CPF."
+        }
+    
+    novo_telefone_formatado = formatar_telefone_br(request.novo_telefone)
+
+    if not novo_telefone_formatado:
+        logger.warning(f"🚫 [API CLT] Novo telefone inválido: {request.novo_telefone}")
+        return {
+            "status": "erro",
+            "code": "telefone_invalido",
+            "message": "O número informado é inválido."
+        }
+    
+    contexto["celular"] = novo_telefone_formatado
+    session.set_context(request.chat_id, contexto)
+
+    logger.info(f"✅ [API CLT] Contexto corrigido. Reiniciando simulação para {contexto['cpf']} no novo número.")
+
+    task = celery_app.send_task(
+        "app.tasks.api_processor.executar_fluxo_clt",
+        kwargs={
+            "chat_id": request.chat_id,
+            "cpf": contexto["cpf"],
+            "nome": contexto.get("nome", ""),
+            "celular": novo_telefone_formatado, # <--- Número Novo
+            "contact_id": contexto.get("contact_id"),
+            "enviar_link": True # True = Envia SMS para o novo número
+        }
+    )
+    
+    return {
+        "status": "PROCESSANDO",
+        "code": "sucesso",
+        "task_id": task.id,
+        "message": "Telefone atualizado e simulação reiniciada."
     }
 
 @router.post("/contratar")

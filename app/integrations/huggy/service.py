@@ -26,7 +26,8 @@ class HuggyService:
             "TERM_AUTHORIZATION": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION"),
             "DIGITACAO_FGTS": os.getenv("HUGGY_FLOW_DIGITACAO_FGTS"),
             "DIGITACAO_CLT": os.getenv("HUGGY_FLOW_DIGITACAO_CLT"),
-            "SEM_ADESAO": os.getenv("HUGGY_FLOW_SEM_ADESAO")
+            "SEM_ADESAO": os.getenv("HUGGY_FLOW_SEM_ADESAO"),
+            "TELEFONE_VINCULADO": os.getenv("HUGGY_FLOW_TELEFONE_VINCULADO")
         }
 
         self.tabulations = {
@@ -161,6 +162,22 @@ class HuggyService:
 
         if not flow_id:
             logger.warning("⚠️ HUGGY_FLOW_SEM_ADESAO não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_flow_telefone_vinculado(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de Telefone Vinculado pré cadastrado Huggy.
+        """
+        flow_id = self.flows.get("TELEFONE_VINCULADO")
+
+        if not flow_id:
+            logger.warning("⚠️ HUGGY_FLOW_TELEFONE_VINCULADO não configurado no .env")
             return False
         
         try:
