@@ -294,14 +294,25 @@ class FactaCLTService:
 
             if tabelas_no_prazo:
                 melhor_opcao = None
-                for tabela in tabelas_no_prazo:
-                    if tabela.get("valor_seguro", 0) > 0:
-                        melhor_opcao = tabela
-                        break
+
+                tabelas_dentro_do_limite = [
+                    t for t in tabelas_no_prazo
+                    if float(t.get("valor_liquido", 0)) <= teto_politica
+                ]
+
+                grupo_para_analise = tabelas_dentro_do_limite if tabelas_dentro_do_limite else tabelas_no_prazo
+
+                if not tabelas_dentro_do_limite:
+                    logger.info(f"⚠️ [CLT] Todas as tabelas excedem o teto {teto_politica}. Selecionando a melhor para recalcular.")
+                else:
+                    logger.info(f"✅ [CLT] Encontradas {len(tabelas_dentro_do_limite)} tabelas dentro do teto. Aplicando regras de escolha.")
                 
-                if not melhor_opcao:
-                    melhor_opcao = tabelas_no_prazo[0]
-                
+                tabelas_ordenadas = sorted(
+                    grupo_para_analise,
+                    key=lambda t: (t.get("valor_seguro", 0) > 0, float(t.get("valor_liquido", 0))),
+                    reverse=True
+                )
+                melhor_opcao = tabelas_ordenadas[0]
                 oferta_encontrada = melhor_opcao
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
@@ -391,16 +402,21 @@ class FactaCLTService:
         
         if not tabelas_no_prazo:
              return {"aprovado": False, "motivo": "ERRO_RECALCULO", "msg_tecnica": "Falha ao ajustar valor no prazo correto"}
-
-        # Mesma lógica de seleção (Prioriza Seguro)
-        melhor_opcao = None
-        for tabela in tabelas_no_prazo:
-            if tabela.get("valor_seguro", 0) > 0:
-                melhor_opcao = tabela
-                break
         
-        if not melhor_opcao:
-            melhor_opcao = tabelas_no_prazo[0]
+        tabelas_dentro_do_limite = [
+            t for t in tabelas_no_prazo
+            if float(t.get("valor_liquido", 0)) <= valor_teto
+        ]
+
+        grupo_analise = tabelas_dentro_do_limite if tabelas_dentro_do_limite else tabelas_no_prazo
+
+        tabelas_ordenadas = sorted(
+            grupo_analise,
+            key=lambda t: (t.get("valor_seguro", 0) > 0, float(t.get("valor_liquido", 0))),
+            reverse=True
+        )
+
+        melhor_opcao = tabelas_ordenadas[0]
         
         return {
             "aprovado": True,
