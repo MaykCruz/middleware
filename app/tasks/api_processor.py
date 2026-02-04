@@ -215,7 +215,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                     chat_id=chat_id,
                     message_key="clt_termo_nao_identificado"
                 )
-                huggy.start_auto_distribution(chat_id)
+                huggy.start_flow_wait_term2(chat_id)
 
         huggy.send_message(
             chat_id=chat_id,
