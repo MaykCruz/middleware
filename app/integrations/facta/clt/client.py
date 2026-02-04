@@ -194,8 +194,15 @@ class FactaCLTAdapter:
                 resp = client.get(url, headers=self._get_headers, params=params)
                 data = resp.json()
 
+                msg = data.get("mensagem", "")
+
+                if data.get("erro") and not msg:
+                    raw_tabelas = data.get("tabelas")
+                    if isinstance(raw_tabelas, str):
+                        msg = raw_tabelas
+
                 status = "ERRO_OPERACOES" if data.get("erro") else "SUCESSO"
-                return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
+                return {"status": status, "dados": data, "msg_original": msg}
 
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao buscar operações: {e}")

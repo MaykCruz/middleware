@@ -317,13 +317,29 @@ class FactaCLTService:
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
+        
+        if oferta_encontrada:
+            valor_liberado = float(melhor_opcao.get("valor_liquido", 0))
+
+            if valor_liberado > teto_politica:
+                logger.info(f"💰 [CLT] Melhor opção ({valor_liberado}) excede teto {teto_politica}. Recalculando...")
+
+                res_recalculo = self._recalcular_por_valor(cpf, nasc, prazo_politica, teto_politica, trab)
+                
+                if res_recalculo["aprovado"]:
+                    return res_recalculo
+                
+                else:
+                    logger.info(f"⚠️ [CLT] Falha no recálculo: {res_recalculo.get('msg_tecnica')}")
+                    oferta_encontrada = None
+                    motivo_falha = res_recalculo.get("motivo", "ERRO_RECALCULO")
+                    msg_falha = res_recalculo.get("msg_tecnica", "Erro ao ajustar valor ao teto.")
 
         if not oferta_encontrada:
             data_admissao = trab.get("dataAdmissao")
             tempo_trabalho = calcular_meses(data_admissao)
 
             margem_minima_distribuicao = 100.00 if tempo_trabalho < 12 else 50.00
-
             if margem_real < margem_minima_distribuicao:
                 return {
                     "aprovado": False,
@@ -349,13 +365,14 @@ class FactaCLTService:
                 }
             
             texto_admissao = formatar_display_tempo(data_admissao)
+            texto_empresa = formatar_display_tempo(data_inicio_empresa)
 
             msg_enriquecida = (
                 f"{msg_falha}\n"
                 f"📊 *Dados para análise:*\n"
                 f"• Margem: R$ {formatar_moeda(margem_real)}\n"
                 f"• Admissão: {texto_admissao}\n"
-                f"• Empresa: {formatar_display_tempo(data_inicio_empresa)}"
+                f"• Empresa: {texto_empresa}"
             )
             
             return {
@@ -363,13 +380,7 @@ class FactaCLTService:
                 "motivo": motivo_falha,
                 "msg_tecnica": msg_enriquecida,
                 "dados_trabalhador": trab
-            }
-            
-        valor_liberado = float(melhor_opcao.get("valor_liquido", 0))
-
-        if valor_liberado > teto_politica:
-            logger.info(f"💰 [CLT] Valor {valor_liberado} excede teto {teto_politica}. Recalculando...")
-            return self._recalcular_por_valor(cpf, nasc, prazo_politica, teto_politica, trab)
+            } 
         
         return {
             "aprovado": True,
@@ -391,6 +402,12 @@ class FactaCLTService:
         Baseado em operacoes_disponiveis_valor do api_facta.py.
         """
         resp = self.client.buscar_operacoes(cpf, nasc, valor_solicitado=valor_teto)
+
+        msg_erro = str(resp.get("msg_original", "")).lower()
+
+        if "nenhuma tabela" in msg_erro:
+            logger.info(f"⚠️ [CLT] Recálculo recusado pela API (Valor muito baixo): {msg_erro}")
+            return {"aprovado": False, "motivo": "SEM_OPERACOES", "msg_tecnica": "Nenhuma tabela disponível"}
         
         if resp["status"] != "SUCESSO":
              return {"aprovado": False, "motivo": "ERRO_RECALCULO", "msg_tecnica": resp.get("msg_original")}
