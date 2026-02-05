@@ -5,6 +5,7 @@ from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
 from app.utils.formatters import limpar_nome
 from app.services.bot.memory.session import SessionManager
+from app.integrations.huggy.service import HuggyService
 
 router = APIRouter(prefix="/api/clt", tags=["API CLT"])
 logger = logging.getLogger(__name__)
@@ -58,11 +59,22 @@ async def iniciar_simulacao_clt(
             f"Nome: {request.nome} | "
             f"Contact ID: {request.contact_id}"
         )
+
+        huggy = HuggyService()
+
+        huggy.send_message(
+            chat_id=request.chat_id,
+            message_key="blank",
+            variables={"blank": f"🚫 [API] Telefone Inválido recebido: {request.celular}"},
+            force_internal=True
+        )
+
+        huggy.start_auto_distribution(request.chat_id)
         
         return {
             "status": "erro",
             "code": "telefone_invalido",
-            "message": "Telefone inválido. Informe DDD + Número."
+            "message": "Telefone inválido. Atendimento distribuido"
         }
     
     nome_limpo = limpar_nome(request.nome)
@@ -172,6 +184,18 @@ async def atualizar_telefone_clt(
 
     if not novo_telefone_formatado:
         logger.warning(f"🚫 [API CLT] Novo telefone inválido: {request.novo_telefone}")
+
+        huggy = HuggyService()
+
+        huggy.send_message(
+            chat_id=request.chat_id,
+            message_key="blank",
+            variables={"blank": f"🚫 [API] Telefone Inválido recebido: {request.novo_telefone}"},
+            force_internal=True
+        )
+
+        huggy.start_auto_distribution(request.chat_id)
+
         return {
             "status": "erro",
             "code": "telefone_invalido",
