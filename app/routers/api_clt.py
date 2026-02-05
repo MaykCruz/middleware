@@ -19,6 +19,7 @@ class SimulacaoCLTRequest(BaseModel):
 
 class VerificarAuthRequest(BaseModel):
     chat_id: str = Field(..., description="ID do chat para recuperar contexto")
+    verificacao_manual: bool = Field(False, description="Se True, envia para humano após esgotar tentativas. Default: False." )
 
 class ContratacaoCLTRequest(BaseModel):
     chat_id: str = Field(..., description="ID do chat para recuperar contexto e efetivar")
@@ -147,7 +148,8 @@ async def verificar_autorizacao_clt(
             "nome": nome,
             "celular": celular,
             "contact_id": contact_id,
-            "enviar_link": False
+            "enviar_link": False,
+            "verificacao_manual": request.verificacao_manual
         }
     )
 

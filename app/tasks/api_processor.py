@@ -144,7 +144,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
             
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True)
-def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True):
+def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
     """
     Executa a lógica pesada de CLT e responde via Huggy.
     Suporta retry automático para status PROCESSAMENTO_PENDENTE.
@@ -211,11 +211,24 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                 raise self.retry(countdown=AUTH_DELAY, max_retries=MAX_AUTH_RETRIES)
             
             else:
-                huggy.send_message(
-                    chat_id=chat_id,
-                    message_key="clt_termo_nao_identificado"
-                )
-                huggy.start_flow_wait_term2(chat_id)
+
+                if verificacao_manual:
+                    logger.warning(f"🛑 [Worker] Loop interrompido. Autorização não encontrada após verificação manual. Distribuindo Chat {chat_id}.")
+
+                    huggy.send_message(
+                        chat_id=chat_id,
+                        message_key="blank",
+                        variables={"blank": "Poxa, ainda não consegui identificar sua autorização no sistema. Vou transferir para um atendente humano te ajudar, só um momento! 👨‍💻"}
+                    )
+                    huggy.start_auto_distribution(chat_id)
+
+                else:
+                    logger.info(f"⚠️ [Worker] Autorização pendente. Enviando para Flow de Espera (Loop 1).")
+                    huggy.send_message(
+                        chat_id=chat_id,
+                        message_key="clt_termo_nao_identificado"
+                    )
+                    huggy.start_flow_wait_term2(chat_id)
 
         huggy.send_message(
             chat_id=chat_id,
