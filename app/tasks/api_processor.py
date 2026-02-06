@@ -1,4 +1,5 @@
 import logging
+import httpx
 from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
 from app.services.products.fgts_service import FGTSService
@@ -14,7 +15,7 @@ def _safe_error_string(e: Exception) -> str:
     err_msg = str(e)
     return err_msg[:200]
 
-@celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts", bind=True, acks_late=True)
+@celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
     """
     Executa a lógica de FGTS e responde via Huggy.
@@ -143,7 +144,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
             
-@celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True)
+@celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
     """
     Executa a lógica pesada de CLT e responde via Huggy.
@@ -414,7 +415,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
-@celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts", bind=True, acks_late=True)
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_fgts(self, chat_id: str):
     """
     Task responsável por efetivar a proposta na Facta (Digitação).
@@ -479,7 +480,7 @@ def executar_digitacao_fgts(self, chat_id: str):
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
-@celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt", bind=True, acks_late=True)
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_clt(self, chat_id: str):
     """
     Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
