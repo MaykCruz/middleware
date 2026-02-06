@@ -214,7 +214,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             else:
 
                 if verificacao_manual:
-                    logger.warning(f"🛑 [Worker] Loop interrompido. Autorização não encontrada após verificação manual. Distribuindo Chat {chat_id}.")
+                    logger.info(f"🛑 [Worker] Loop interrompido. Autorização não encontrada após verificação manual. Distribuindo Chat {chat_id}.")
 
                     huggy.send_message(
                         chat_id=chat_id,
