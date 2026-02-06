@@ -41,6 +41,7 @@ class ProposalStep1CLT(ProposalStep1Base):
     valor_operacao: float
     valor_parcela: float
     coeficiente: float
+    matricula: str
 
 class ProposalStep1FGTS(ProposalStep1Base):
     """

@@ -178,6 +178,10 @@ class FactaProposalService:
         
         nasc_br = self._converter_data(dados_api.get("DATANASCIMENTO"))
 
+        oferta = dados_contexto.get("oferta_selecionada", {}) 
+        detalhes = oferta.get("detalhes", {})
+        matricula = str(detalhes.get("matricula", ""))
+
         dados_step1 = {
             "cpf": cpf,
             "data_nascimento": nasc_br,
@@ -185,17 +189,16 @@ class FactaProposalService:
             "prazo": int(dados_oferta.get("prazo")),
             "valor_operacao": float(dados_oferta.get("valor_operacao")),
             "valor_parcela": float(dados_oferta.get("valor_parcela")),
-            "coeficiente": float(dados_oferta.get("coeficiente") or 0)
+            "coeficiente": float(dados_oferta.get("coeficiente") or 0),
+            "matricula": matricula
         }
         id_simulador = self._step1_simulacao_clt(dados_step1)
         logger.info(f"✅ Step 1 (CLT) OK. ID: {id_simulador}")
 
         payload_base = self._mapear_dados_api_para_schema(cpf, dados_api, id_simulador, dados_contexto)
-        oferta = dados_contexto.get("oferta_selecionada", {}) 
-        detalhes = oferta.get("detalhes", {})
 
 
-        payload_base["matricula"] = str(detalhes.get("matricula", ""))
+        payload_base["matricula"] = matricula
         payload_base["data_admissao"] = self._converter_data(str(detalhes.get("data_admissao", "")))
         payload_base["cnpj_empregador"] = str(detalhes.get("cnpj_empregador", ""))
 
