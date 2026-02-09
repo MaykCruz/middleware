@@ -105,7 +105,7 @@ class FactaProposalService:
             "cidade_natural": naturalidade_id,
             "estado_natural": estado_natural,
             "celular": celular_contexto,
-            "cep": dados_api.get("CEP"),
+            "cep": self._limpar_numeros(dados_api.get("CEP")),
             "endereco": dados_api.get("ENDERECO"),
             "numero": str(numero),
             "bairro": dados_api.get("BAIRRO"),
