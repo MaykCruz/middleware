@@ -226,5 +226,9 @@
     },
     "link_formalizacao": {
         "text": "Segue o link para formalização da proposta, assim que concluir me avise para que eu possa verificar se deu certo!\nCaso precise de ajuda é só me chamar!\n\n{link}"
+    },
+    "clt_contrato_andamento": {
+        "text": "Não consegui finalizar a digitação, pois consta que possui uma proposta em andamento por outro lugar!",
+        "file": "https://i.postimg.cc/yd1gDSgs/contrato-andamento.png"
     }
 }

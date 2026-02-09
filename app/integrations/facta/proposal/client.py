@@ -5,6 +5,10 @@ from app.integrations.facta.auth import FactaAuth, create_client
 
 logger = logging.getLogger(__name__)
 
+class FactaContratoAndamentoError(Exception):
+    """Levantada quando a API recusa por contrato já em andamento."""
+    pass
+
 class FactaProposalClient:
     """
     Cliente especializado na esteira de digitação.
@@ -41,7 +45,12 @@ class FactaProposalClient:
                 data = resp.json()
 
                 if isinstance(data, dict) and data.get("erro") is True:
-                    msg = data.get("mensagem") or data.get("msg") or "Erro desconhecido Facta"
+                    msg = str(data.get("mensagem") or data.get("msg") or "Erro desconhecido").lower()
+
+                    if "contrato em andamento" in msg:
+                        logger.warning(f"⚠️ [Proposal Client] Bloqueio de Negócio: {msg}")
+                        raise FactaContratoAndamentoError(msg)
+                    
                     logger.error(f"❌ [Proposal Client] Erro de Negócio em {endpoint}: {msg}")
                     raise ValueError(f"Facta Error: {msg}")
                 

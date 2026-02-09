@@ -42,6 +42,7 @@ class HuggyService:
             "CLT_RECUSA_DEFINITIVA": os.getenv("HUGGY_CLT_RECUSA_DEFINITIVA"),
             "SEM_MARGEM_CLT": os.getenv("HUGGY_TABULATION_SEM_MARGEM_CLT"),
             "CELETISTA_RESTRICAO": os.getenv("HUGGY_CELETISTA_RESTRICAO"),
+            "CONTRATO_ANDAMENTO": os.getenv("HUGGY_CONTRATO_ANDAMENTO")
         }
 
         self.agents = {

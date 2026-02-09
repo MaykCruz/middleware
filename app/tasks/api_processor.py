@@ -5,6 +5,7 @@ from app.infrastructure.celery import celery_app
 from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
 from app.services.proposal_service import ProposalService
+from app.integrations.facta.proposal.client import FactaContratoAndamentoError
 from app.integrations.huggy.service import HuggyService
 from app.schemas.credit import AnalysisStatus
 from app.utils.formatters import formatar_moeda
@@ -527,6 +528,16 @@ def executar_digitacao_clt(self, chat_id: str):
 
         else:
             raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
+    
+    except FactaContratoAndamentoError:
+        logger.warning(f"⚠️ [Worker] Digitação bloqueada: Contrato já existente para Chat {chat_id}")
+
+        huggy.send_message(
+            chat_id=chat_id,
+            message_key="clt_contrato_andamento"
+        )
+
+        huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CONTRATO_ANDAMENTO"))
     
     except Exception as e:
         try:
