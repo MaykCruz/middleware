@@ -3,7 +3,9 @@ from fastapi import APIRouter, Header
 from pydantic import BaseModel, Field
 from app.infrastructure.celery import celery_app
 from app.services.bot.memory.session import SessionManager
+from app.integrations.huggy.service import HuggyService
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
+from app.utils.formatters import limpar_nome
 
 router = APIRouter(prefix="/api/fgts", tags=["API FGTS"])
 logger = logging.getLogger(__name__)
@@ -50,15 +52,29 @@ async def iniciar_simulacao_fgts(
             f"Nome: {request.nome} | "
             f"Contact ID: {request.contact_id}"
         )
+
+        huggy = HuggyService()
+
+        huggy.send_message(
+            chat_id=request.chat_id,
+            message_key="blank",
+            variables={"blank": f"🚫 [API] Telefone Inválido recebido: {request.celular}"},
+            force_internal=True
+        )
+
+        huggy.start_put_in_queue(request.chat_id)
         
         return {
             "status": "erro",
             "code": "telefone_invalido",
-            "message": "Telefone inválido. Informe DDD + Número."
+            "message": "Telefone inválido. Atendimento distribuido"
         }
+    
+    nome_limpo = limpar_nome(request.nome)
     
     request.cpf = cpf_limpo
     request.celular = telefone_formatado
+    request.nome = nome_limpo
 
     logger.info(f"🚀 [API FGTS] Recebida solicitação para {request.cpf}")
 

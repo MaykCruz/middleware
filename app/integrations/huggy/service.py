@@ -28,7 +28,8 @@ class HuggyService:
             "DIGITACAO_CLT": os.getenv("HUGGY_FLOW_DIGITACAO_CLT"),
             "SEM_ADESAO": os.getenv("HUGGY_FLOW_SEM_ADESAO"),
             "TELEFONE_VINCULADO": os.getenv("HUGGY_FLOW_TELEFONE_VINCULADO"),
-            "TERM_AUTHORIZATION_2": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION_2")
+            "TERM_AUTHORIZATION_2": os.getenv("HUGGY_FLOW_TERM_AUTHORIZATION_2"),
+            "PUT_IN_QUEUE": os.getenv("HUGGY_FLOW_PUT_IN_QUEUE")
         }
 
         self.tabulations = {
@@ -116,6 +117,22 @@ class HuggyService:
 
         if not flow_id:
             logger.warning("⚠️ HUGGY_FLOW_AUTO_DISTRIBUTION não configurado no .env")
+            return False
+        
+        try:
+            return self.client.trigger_flow(chat_id, int(flow_id))
+        except ValueError:
+            logger.error(f"❌ ID do Flow inválido no .env: {flow_id}")
+            return False
+    
+    def start_put_in_queue(self, chat_id: int) -> bool:
+        """
+        Inicia o fluxo de colocar na fila.
+        """
+        flow_id = self.flows.get("PUT_IN_QUEUE")
+
+        if not flow_id:
+            logger.warning("⚠️ HUGGY_FLOW_PUT_IN_QUEUE não configurado no .env")
             return False
         
         try:
