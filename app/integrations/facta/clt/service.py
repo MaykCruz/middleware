@@ -318,7 +318,6 @@ class FactaCLTService:
                 )
                 melhor_opcao = tabelas_ordenadas[0]
                 oferta_encontrada = melhor_opcao
-                logger.info(f"🏆 [CLT] Tabela Eleita (Inicial): '{melhor_opcao.get('tabela')}' (Cód: {melhor_opcao.get('codigoTabela')}) | Líquido: {melhor_opcao.get('valor_liquido')}")
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
@@ -443,7 +442,6 @@ class FactaCLTService:
         )
 
         melhor_opcao = tabelas_ordenadas[0]
-        logger.info(f"♻️ [CLT] Tabela Eleita (Recálculo): '{melhor_opcao.get('tabela')}' (Cód: {melhor_opcao.get('codigoTabela')}) | Líquido Ajustado: {melhor_opcao.get('valor_liquido')}")
         
         return {
             "aprovado": True,
