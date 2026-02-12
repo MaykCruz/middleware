@@ -70,7 +70,7 @@ async def iniciar_simulacao_clt(
             force_internal=True
         )
 
-        huggy.start_auto_distribution(request.chat_id)
+        huggy.start_put_in_queue(request.chat_id)
         
         return {
             "status": "erro",
@@ -196,7 +196,7 @@ async def atualizar_telefone_clt(
             force_internal=True
         )
 
-        huggy.start_auto_distribution(request.chat_id)
+        huggy.start_put_in_queue(request.chat_id)
 
         return {
             "status": "erro",

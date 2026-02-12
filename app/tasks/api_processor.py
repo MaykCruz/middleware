@@ -103,10 +103,10 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("SEM_SALDO"))
         
         elif oferta.status == AnalysisStatus.LIMITE_EXCEDIDO_CONSULTAS_FGTS:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
         
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
     
     except MaxRetriesExceededError:
         logger.info(f"⏰ [Worker FGTS] Timeout: Desistindo após {MAX_RETRIES} tentativas.")
@@ -124,7 +124,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
         except Exception:
             pass
 
-        HuggyService().start_auto_distribution(chat_id)
+        HuggyService().start_put_in_queue(chat_id)
     
     except Exception as e:
         if isinstance(e, Retry):
@@ -141,7 +141,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_auto_distribution(chat_id)
+            HuggyService().start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
             
@@ -222,7 +222,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                         message_key="blank",
                         variables={"blank": "Poxa, ainda não consegui identificar sua autorização no sistema. Vou transferir para um atendente humano te ajudar, só um momento! 👨‍💻"}
                     )
-                    huggy.start_auto_distribution(chat_id)
+                    huggy.start_put_in_queue(chat_id)
 
                 else:
                     logger.info(f"⚠️ [Worker] Autorização pendente. Enviando para Flow de Espera (Loop 1).")
@@ -268,7 +268,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_flow_telefone_vinculado(chat_id)
         
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
         
         elif oferta.status == AnalysisStatus.CPF_NAO_ENCONTRADO_NA_BASE:
             msg = oferta.raw_details.get("msg_tecnica")
@@ -301,7 +301,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             message_key="idade_insuficiente_facta",
             variables={"sugestao": sugestao},
             force_internal=True)
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
             huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE:
@@ -334,7 +334,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
             huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.LIMITE_CONTRATOS:
@@ -367,17 +367,17 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
             huggy.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.VIRADA_FOLHA:
             huggy.send_message(chat_id=chat_id,
             message_key="clt_virada_folha",
             force_internal=True)
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
         
         elif oferta.status == AnalysisStatus.ERRO_TECNICO:
-            huggy.start_auto_distribution(chat_id)
+            huggy.start_put_in_queue(chat_id)
     
     except MaxRetriesExceededError:
         logger.info(f"⏰ [Worker CLT] Timeout: Limite de tentativas excedido para {cpf}")
@@ -395,7 +395,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         except Exception:
             pass
 
-        HuggyService().start_auto_distribution(chat_id)
+        HuggyService().start_put_in_queue(chat_id)
 
     except Exception as e:
         if isinstance(e, Retry):
@@ -412,7 +412,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_auto_distribution(chat_id)
+            HuggyService().start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
@@ -477,7 +477,7 @@ def executar_digitacao_fgts(self, chat_id: str):
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_auto_distribution(chat_id)
+            HuggyService().start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
@@ -551,7 +551,7 @@ def executar_digitacao_clt(self, chat_id: str):
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_auto_distribution(chat_id)
+            HuggyService().start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
             
