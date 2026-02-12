@@ -309,11 +309,16 @@ class FactaCLTService:
                 
                 tabelas_ordenadas = sorted(
                     grupo_para_analise,
-                    key=lambda t: (t.get("valor_seguro", 0) > 0, float(t.get("valor_liquido", 0))),
+                    key=lambda t: (
+                        str(t.get("codigoTabela")) == "114300",
+                        t.get("valor_seguro", 0) > 0,
+                        float(t.get("valor_liquido", 0))
+                    ),
                     reverse=True
                 )
                 melhor_opcao = tabelas_ordenadas[0]
                 oferta_encontrada = melhor_opcao
+                logger.info(f"🏆 [CLT] Tabela Eleita (Inicial): '{melhor_opcao.get('tabela')}' (Cód: {melhor_opcao.get('codigoTabela')}) | Líquido: {melhor_opcao.get('valor_liquido')}")
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
@@ -429,11 +434,16 @@ class FactaCLTService:
 
         tabelas_ordenadas = sorted(
             grupo_analise,
-            key=lambda t: (t.get("valor_seguro", 0) > 0, float(t.get("valor_liquido", 0))),
+            key=lambda t: (
+                str(t.get("codigoTabela")) == "114300",
+                t.get("valor_seguro", 0) > 0, 
+                float(t.get("valor_liquido", 0))
+            ),
             reverse=True
         )
 
         melhor_opcao = tabelas_ordenadas[0]
+        logger.info(f"♻️ [CLT] Tabela Eleita (Recálculo): '{melhor_opcao.get('tabela')}' (Cód: {melhor_opcao.get('codigoTabela')}) | Líquido Ajustado: {melhor_opcao.get('valor_liquido')}")
         
         return {
             "aprovado": True,
