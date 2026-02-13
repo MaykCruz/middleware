@@ -1,19 +1,31 @@
 import os
 import base64
 import httpx
+from httpx_retry import RetryTransport
 import logging
 import time
 from app.infrastructure.token_manager import TokenManager
 
 logger = logging.getLogger(__name__)
 
-def create_client(timeout: float = 60.0) -> httpx.Client:
+def create_client(timeout: float = 30.0) -> httpx.Client:
         """
         Fábrica única de Clientes HTTP para a Facta.
         Já injeta Proxy (se existir no .env) e define o Timeout padrão.
         """
         proxy_url = os.getenv("FACTA_PROXY_URL")
-        client_kwargs = {"timeout": timeout}
+
+        retry_transport = RetryTransport(
+            max_attempts=3,
+            backoff_factor=2,
+            retry_status_codes=[520, 502, 503, 504, 429],
+            retry_exceptions=(httpx.ConnectError, httpx.TimeoutException)
+        )
+
+        client_kwargs = {
+            "timeout": timeout,
+            "transport": retry_transport
+        }
 
         if proxy_url:
             logger.info(f"🛡️ [Network] Configurando Proxy Facta.")

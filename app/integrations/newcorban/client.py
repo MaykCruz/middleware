@@ -1,0 +1,122 @@
+import httpx
+import logging
+import os
+import re
+from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
+
+class NewCorbanClient:
+    """
+    Responsável exclusivamente pela comunicação HTTP com a API NewCorban.
+    Lida com autenticação, headers e execução das requisições.
+    """
+    def __init__(self):
+        self.url_base_proposta = "https://api.newcorban.com.br/api"
+        self.url_base_sistema = "https://server.newcorban.com.br"
+
+        self.user = os.getenv('NEW_USER')
+        self.password = os.getenv('NEW_PASSWORD')
+        self.empresa = os.getenv('NEW_EMPRESA')
+
+        self.server_user = os.getenv('NEW_USER')
+        self.server_pass = os.getenv('NEW_PASSWORD')
+        self.server_empresa = os.getenv('NEW_EMPRESA')
+
+        self.headers_browser = {
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'origin': 'https://empreste.newcorban.com.br',
+            'referer': 'https://empreste.newcorban.com.br/',
+            'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+        }
+    
+    def get_bank_account_history(self, cpf: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Busca o histórico de contas bancárias na API interna.
+        Retorna a lista bruta de históricos ou None em caso de erro.
+        """
+        token = self._authenticate_internal()
+        if not token:
+            return None
+        
+        cpf_limpo = re.sub(r'\D', '', cpf)
+        url = f"{self.url_base_sistema}/system/cliente.php"
+
+        params = {
+            "action": "getBankAccountHistory",
+            "cpf": cpf_limpo
+        }
+
+        headers = self.headers_browser.copy()
+        headers['Authorization'] = f"Bearer {token}"
+
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                response = client.get(url, params=params, headers=headers)
+                
+                if response.status_code == 200:
+                    try:
+                        return response.json()
+                    except Exception:
+                        logger.error(f"❌ [NewCorban Client] Erro ao decodificar JSON de histórico.")
+                        return None
+                else:
+                    logger.warning(f"⚠️ [NewCorban Client] Erro HTTP {response.status_code} ao buscar histórico.")
+                    return None
+        except Exception as e:
+            logger.error(f"❌ [NewCorban Client] Erro de conexão (Histórico): {e}")
+            return None
+    
+    def create_proposal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Envia uma proposta para a API de parceiros.
+        """
+        url = f"{self.url_base_proposta}/propostas/"
+        
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(url, json=payload)
+                
+                # Retorna um dict padronizado com status e dados
+                return {
+                    "status_code": response.status_code,
+                    "response_text": response.text,
+                    "success": response.status_code in [200, 201]
+                }
+        except Exception as e:
+            logger.error(f"❌ [NewCorban Client] Erro crítico ao criar proposta: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _authenticate_internal(self) -> Optional[str]:
+        """
+        Realiza login na API interna e retorna o Bearer Token.
+        """
+        url = f"{self.url_base_sistema}/api/v2/login"
+
+        payload = {
+            "usuario": self.server_user,
+            "empresa": self.server_empresa,
+            "ip": "127.0.0.1",
+            "senha": self.server_pass,
+            "p": "facta"
+        }
+
+        headers = self.headers_browser.copy()
+        headers['content-type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, data=payload, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("token")
+                else:
+                    logger.error(f"❌ [NewCorban Auth] Falha no login: {response.status_code}")
+                    return None
+        except Exception as e:
+            logger.error(f"❌ [NewCorban Auth] Erro de conexão: {e}")
+            return None
