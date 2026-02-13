@@ -310,6 +310,7 @@ class FactaCLTService:
                 tabelas_ordenadas = sorted(
                     grupo_para_analise,
                     key=lambda t: (
+                        not (int(t.get("prazo")) == 18 and float(t.get("taxa", 0)) == 5.99),
                         str(t.get("codigoTabela")) == "114300",
                         t.get("valor_seguro", 0) > 0,
                         float(t.get("valor_liquido", 0))
@@ -434,6 +435,7 @@ class FactaCLTService:
         tabelas_ordenadas = sorted(
             grupo_analise,
             key=lambda t: (
+                not (int(t.get("prazo")) == 18 and float(t.get("taxa", 0)) == 5.99),
                 str(t.get("codigoTabela")) == "114300",
                 t.get("valor_seguro", 0) > 0, 
                 float(t.get("valor_liquido", 0))
