@@ -104,3 +104,32 @@ def calcular_meses(data_str):
         return max(0, meses_completos)
     except Exception:
         return 0
+    
+def formatar_cpf(cpf: str) -> str:
+    """
+    Formata CPF string pura (12345678900) para 123.456.789-00
+    """
+    if not cpf: return ""
+    c = re.sub(r'\D', '', str(cpf))
+    
+    if len(c) != 11: 
+        return cpf # Retorna original se não tiver 11 dígitos
+        
+    return f"{c[:3]}.{c[3:6]}.{c[6:9]}-{c[9:]}"
+
+def formatar_telefone(telefone: str) -> str:
+    if not telefone: return ""
+    t = re.sub(r'\D', '', str(telefone))
+
+    if t.startswith('55') and len(t) >= 12:
+        t = t[2:] # remove os 2 primeiros caracteres
+    
+    # Se tem 10 (ex: 6992558501), vira 11 (69992558501)
+    if len(t) == 10:
+        t = f"{t[:2]}9{t[2:]}"
+    
+    # Se tem 11 (seja original ou transformado), aplica máscara
+    if len(t) == 11:
+        return f"({t[:2]}) {t[2:7]}-{t[7:]}"
+    
+    return telefone 

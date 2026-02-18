@@ -67,11 +67,23 @@ class FactaDadosCadastrais:
             return None
         
         texto_completo = self._formatar_dados_bancarios(banco, agencia, conta, tipo)
-
+        
         return {
-            "raw": dados,
+            "raw": {
+                "origem": "facta",
+                "tipo_dado": "CONTA",
+                
+                "BANCO": banco,
+                "AGENCIA": agencia,
+                "CONTA": conta,
+                "TIPO_CONTA": tipo,
+
+                "chave_pix": None,
+                "tipo_chave_pix": None,
+                "codigo_tipo_chave_pix": 0
+            },
             "texto_formatado": texto_completo,
-            "banco_nome": self.data_manager.get_nome_banco(banco),
+            "origem": "facta"
         }
 
     def _formatar_dados_bancarios(self, banco: str, agencia: str, conta: str, tipo: str) -> str:
@@ -81,7 +93,9 @@ class FactaDadosCadastrais:
         if not banco or not conta:
             return ""
         
-        banco_formatado = self.data_manager.get_nome_banco(banco)
+        banco_formatado = self.data_manager.get_nome_banco(str(banco))
+        if not banco_formatado:
+            banco_formatado = f"Banco {banco}"
 
         agencia_formatada = str(agencia).zfill(4) if agencia else "Sem Agência"
 
@@ -94,11 +108,7 @@ class FactaDadosCadastrais:
             conta_formatada = conta_limpa
 
         tipo_upper = str(tipo).upper()
-        tipo_desc = ""
-        if tipo_upper == "C":
-            tipo_desc = "corrente"
-        elif tipo_upper == "P":
-            tipo_desc = "poupança"
+        tipo_desc = "poupança" if "P" in tipo_upper else "corrente"
         
         texto = f"{banco_formatado}\nAgência: {agencia_formatada}\nConta {tipo_desc}: {conta_formatada}"
         return texto

@@ -1,6 +1,6 @@
 import logging
 from app.integrations.facta.clt.service import FactaCLTService
-from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
+from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses
@@ -14,7 +14,7 @@ class CLTService:
     """
     def __init__(self):
         self.facta_service = FactaCLTService()
-        self.dados_cadastrais = FactaDadosCadastrais()
+        self.bank_service = BankAccountService()
         self.session_manager = SessionManager()
         
     def consultar_oportunidade(self, cpf: str, nome: str, celular: str, chat_id: str, enviar_link: bool = True) -> CreditOffer:
@@ -33,7 +33,9 @@ class CLTService:
             oferta_dados = resultado_raw.get("oferta", {})
             trabalhador = oferta_dados.get("dados_trabalhador", {})
 
-            info_conta = self.dados_cadastrais.buscar_conta_bancaria(cpf)
+            info_conta = self.bank_service.buscar_melhor_conta(cpf)
+
+            dados_bancarios_completo = info_conta["raw"] if info_conta else None
 
             if chat_id:
                 detalhes_oferta = {
@@ -45,17 +47,8 @@ class CLTService:
                     "matricula": trabalhador.get("matricula"),
                     "data_admissao": trabalhador.get("dataAdmissao"),
                     "cnpj_empregador": trabalhador.get("numeroInscricaoEmpregador"),
-                    "dados_bancarios": None
+                    "dados_bancarios": dados_bancarios_completo
                 }
-
-                if info_conta:
-                    raw_banco = info_conta.get("raw", {})
-                    detalhes_oferta["dados_bancarios"] = {
-                        "banco": raw_banco.get("BANCO"),
-                        "agencia": raw_banco.get("AGENCIA"),
-                        "conta": raw_banco.get("CONTA"),
-                        "tipo_conta": raw_banco.get("TIPO_CONTA")
-                    }
             
                 self.session_manager.update_context(chat_id, {
                     "oferta_selecionada": {
@@ -68,14 +61,9 @@ class CLTService:
             val_liquido = oferta_dados.get("valor_liquido", 0.0)
             mes_desconto = obter_mes_inicio_desconto()
 
+            resultado_raw["dados_bancarios"] = dados_bancarios_completo
+
             if info_conta:
-                raw_banco = info_conta.get("raw", {})
-                resultado_raw["dados_bancarios"] = {
-                    "banco": raw_banco.get("BANCO"),
-                    "agencia": raw_banco.get("AGENCIA"),
-                    "conta": raw_banco.get("CONTA"),
-                    "tipo_conta": raw_banco.get("TIPO_CONTA")
-                }
                 return CreditOffer(
                     status=AnalysisStatus.APROVADO,
                     message_key="clt_oferta_disponivel_conta",
@@ -113,11 +101,6 @@ class CLTService:
             )
         
         if motivo == "TERMO_AINDA_PENDENTE":
-            # return CreditOffer(
-            #     status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
-            #     message_key="clt_termo_nao_identificado",
-            #     raw_details=resultado_raw
-            # )
             return CreditOffer(
                     status=AnalysisStatus.AINDA_AGUARDANDO_AUTORIZACAO,
                     message_key="blank",

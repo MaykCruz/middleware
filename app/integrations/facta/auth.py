@@ -1,7 +1,7 @@
 import os
 import base64
 import httpx
-from httpx_retry import RetryTransport
+from app.utils.retry_transport import RetryTransport
 import logging
 import time
 from app.infrastructure.token_manager import TokenManager
@@ -16,10 +16,9 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
         proxy_url = os.getenv("FACTA_PROXY_URL")
 
         retry_transport = RetryTransport(
-            max_attempts=3,
+            max_retries=3,
             backoff_factor=2,
-            retry_status_codes=[520, 502, 503, 504, 429],
-            retry_exceptions=(httpx.ConnectError, httpx.TimeoutException)
+            retry_status_codes=[520, 502, 503, 504, 429]
         )
 
         client_kwargs = {

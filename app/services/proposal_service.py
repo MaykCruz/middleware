@@ -51,7 +51,7 @@ class ProposalService:
                 dados_contexto=context
             )
 
-            self._tentar_cadastro_newcorban(cpf, resultado, detalhes.get("valor_liquido"))
+            self._tentar_cadastro_newcorban(cpf, resultado, detalhes.get("valor_liquido"), context=context)
 
             logger.info(f"🎉 [Proposal Global] Sucesso Chat {chat_id}! Link: {resultado.get('url_formalizacao')}")
             return resultado
@@ -90,7 +90,7 @@ class ProposalService:
                 dados_contexto=context
             )
 
-            self._tentar_cadastro_newcorban(cpf, resultado, oferta_dados.get("valor_liquido"))
+            self._tentar_cadastro_newcorban(cpf, resultado, oferta_dados.get("valor_liquido"), context=context)
 
             logger.info(f"🎉 [Proposal Global] Sucesso CLT Chat {chat_id}! Link: {resultado.get('url_formalizacao')}")
             return resultado
@@ -99,7 +99,7 @@ class ProposalService:
             logger.error(f"❌ [Proposal Global] Falha na digitação automática CLT: {e}")
             raise e
 
-    def _tentar_cadastro_newcorban(self, cpf: str, resultado_facta: dict, valor_liquido: float):
+    def _tentar_cadastro_newcorban(self, cpf: str, resultado_facta: dict, valor_liquido: float, context: dict):
         """Helper para isolar a lógica do NewCorban e evitar duplicação"""
         codigo_af = resultado_facta.get("codigo")
         link_formalizacao = resultado_facta.get("url_formalizacao")
@@ -109,6 +109,12 @@ class ProposalService:
                 logger.info(f"🔌 [Proposal Global] Iniciando cadastro no NewCorban para AF {codigo_af}...")
                 dados_completos = self.facta_dados.consultar_dados_completos(cpf)
                 if dados_completos:
+                    oferta = context.get("oferta_selecionada", {})
+                    detalhes = oferta.get("detalhes", {})
+                    dados_bancarios_redis = detalhes.get("dados_bancarios") or {}
+                    
+                    dados_completos.update(dados_bancarios_redis)
+
                     dados_completos["link_formalizacao"] = link_formalizacao
                     dados_completos["VALOR_LIQUIDO"] = valor_liquido
                     self.newcorban_service.cadastrar_proposta(dados_completos, codigo_af)

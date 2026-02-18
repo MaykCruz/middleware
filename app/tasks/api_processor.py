@@ -67,14 +67,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
             dados_bancarios = detalhes.get("dados_bancarios")
 
-            possui_conta_valida = (
-                dados_bancarios 
-                and isinstance(dados_bancarios, dict)
-                and dados_bancarios.get("conta") 
-                and dados_bancarios.get("agencia")
-            )
-
-            if possui_conta_valida:
+            if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker FGTS] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
         
                 huggy.start_flow_digitacao_fgts(chat_id)
@@ -243,14 +236,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
             dados_bancarios = detalhes.get("dados_bancarios")
 
-            possui_conta_valida = (
-                dados_bancarios 
-                and isinstance(dados_bancarios, dict)
-                and dados_bancarios.get("conta") 
-                and dados_bancarios.get("agencia")
-            )
-
-            if possui_conta_valida:
+            if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker CLT] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
         
                 huggy.start_flow_digitacao_clt(chat_id)

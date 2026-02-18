@@ -1,6 +1,6 @@
 import logging
 from app.integrations.facta.fgts.service import FactaFGTSService
-from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
+from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda
@@ -15,7 +15,7 @@ class FGTSService:
     """
     def __init__(self):
         self.facta_service = FactaFGTSService()
-        self.dados_cadastrais = FactaDadosCadastrais()
+        self.bank_service = BankAccountService()
         self.session_manager = SessionManager()
 
     def consultar_melhor_oportunidade(self, cpf: str, chat_id: str) -> CreditOffer:
@@ -33,7 +33,7 @@ class FGTSService:
             val_liquido = detalhes["valor_liquido"]
             valor_fmt = formatar_moeda(val_liquido)
 
-            info_conta = self.dados_cadastrais.buscar_conta_bancaria(cpf)
+            info_conta = self.bank_service.buscar_melhor_conta(cpf)
 
             dados_para_salvar = {
                 "valor_liquido": val_liquido,
@@ -44,13 +44,7 @@ class FGTSService:
             }
 
             if info_conta:
-                raw_banco = info_conta.get("raw", {})
-                dados_para_salvar["dados_bancarios"] = {
-                    "banco": raw_banco.get("BANCO"),
-                    "agencia": raw_banco.get("AGENCIA"),
-                    "conta": raw_banco.get("CONTA"),
-                    "tipo_conta": raw_banco.get("TIPO_CONTA")
-                }
+                dados_para_salvar["dados_bancarios"] = info_conta.get("raw")
             
             if chat_id:
                 self.session_manager.update_context(chat_id, {
@@ -84,9 +78,9 @@ class FGTSService:
                     status=AnalysisStatus.APROVADO,
                     message_key="com_saldo",
                     banco_origem="Facta",
-                    valor_liquido=resultado_raw["detalhes"]["valor_liquido"],
+                    valor_liquido=val_liquido,
                     variables={
-                        "valor": formatar_moeda(resultado_raw["detalhes"]["valor_liquido"]),
+                        "valor": valor_fmt,
                         "banco": "Facta"
                     },
                     raw_details=raw_details_enriquecido

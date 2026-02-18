@@ -73,6 +73,7 @@ class FactaProposalService:
     def _mapear_dados_api_para_schema(self, cpf: str, dados_api: dict, id_simulador: int, dados_contexto: dict) -> dict:
         """
         Traduz o JSON 'sujo' da Consulta Facta para o formato limpo do Schema Step 2.
+        Usa 'tipo_dado' (PIX ou CONTA) para decidir o preenchimento.
         """
         naturalidade_id = self._extrair_id_hibrido(dados_api.get("CIDADENATURAL"))
 
@@ -87,12 +88,8 @@ class FactaProposalService:
             numero = "01"
         
         celular_contexto = self._formatar_celular(dados_contexto.get("celular"))
-        
-        oferta_ctx = dados_contexto.get("oferta_selecionada", {})
-        detalhes_ctx = oferta_ctx.get("detalhes", {})
-        dados_bancarios = detalhes_ctx.get("dados_bancarios") or {}
 
-        return {
+        payload = {
             "id_simulador": id_simulador,
             "cpf": cpf,
             "nome": dados_api.get("DESCRICAO"),
@@ -111,12 +108,34 @@ class FactaProposalService:
             "bairro": dados_api.get("BAIRRO"),
             "cidade": cidade_id,
             "estado": dados_api.get("ESTADO"),
-            "nome_mae": dados_api.get("NOMEMAE"),
-            "banco": dados_bancarios.get("banco"),
-            "agencia": dados_bancarios.get("agencia"),
-            "conta": dados_bancarios.get("conta"),
-            "tipo_conta": dados_bancarios.get("tipo_conta")
+            "nome_mae": dados_api.get("NOMEMAE")
         }
+        
+        oferta_ctx = dados_contexto.get("oferta_selecionada", {})
+        detalhes_ctx = oferta_ctx.get("detalhes", {})
+        dados_bancarios = detalhes_ctx.get("dados_bancarios") or {}
+
+        tipo_pagamento = dados_bancarios.get("tipo_dado")
+
+        if tipo_pagamento == "PIX":
+            logger.info(f"💸 [Facta Service] Configurando pagamento via PIX para {cpf}")
+
+            payload.update({
+                "chave_pix": dados_bancarios.get("chave_pix"),
+                "tipo_chave_pix": dados_bancarios.get("codigo_tipo_chave_pix")
+            })
+        
+        else:
+            logger.info(f"🏦 [Facta Service] Configurando pagamento via CONTA para {cpf}")
+
+            payload.update({
+                "banco": dados_bancarios.get("BANCO"),
+                "agencia": dados_bancarios.get("AGENCIA"),
+                "conta": dados_bancarios.get("CONTA"),
+                "tipo_conta": dados_bancarios.get("TIPO_CONTA")
+            })
+
+        return payload
     
     def _step1_simulacao_fgts(self, dados: Dict[str, Any]) -> int:
         payload = ProposalStep1FGTS(**dados)
