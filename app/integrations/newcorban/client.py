@@ -1,7 +1,9 @@
+import time
 import httpx
 import logging
 import os
 import re
+from app.infrastructure.token_manager import TokenManager
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,9 @@ class NewCorbanClient:
         self.server_user = os.getenv('NEW_USER')
         self.server_pass = os.getenv('NEW_PASSWORD')
         self.server_empresa = os.getenv('NEW_EMPRESA')
+
+        self.token_manager = TokenManager()
+        self.SCOPE = "NEWCORBAN_INTERNAL"
 
         self.headers_browser = {
             'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -93,8 +98,43 @@ class NewCorbanClient:
 
     def _authenticate_internal(self) -> Optional[str]:
         """
-        Realiza login na API interna e retorna o Bearer Token.
+        Retorna um token Bearer válido para o NewCorban.
+        Padronizado com a lógica de Cache e Lock da Facta.
         """
+        max_tentativas = 3
+
+        for tentativa in range(1, max_tentativas + 1):
+            token = self.token_manager.get_token(self.SCOPE)
+            if token:
+                return token
+            
+            if self.token_manager.acquire_lock(self.SCOPE):
+                try:
+                    logger.info(f"🔑 [NewCorban] Tentativa {tentativa}/{max_tentativas}: Iniciando login...")
+                    new_token = self._request_new_token()
+
+                    if new_token:
+                        self.token_manager.save_token(self.SCOPE, new_token, 72000)
+                        return new_token
+                    
+                    self.token_manager.release_lock(self.SCOPE)
+                    time.sleep(2)
+                except Exception as e:
+                    self.token_manager.release_lock(self.SCOPE)
+                    logger.error(f"❌ [NewCorban] Falha na renovação: {e}")
+
+                    if tentativa == max_tentativas:
+                        raise e
+                    time.sleep(2)
+            
+            else:
+                logger.info(f"⏳ [NewCorban] Aguardando renovação por outro worker...")
+                time.sleep(2)
+
+        raise TimeoutError("Não foi possível obter token do NewCorban.")
+
+    def _request_new_token(self) -> str:
+        """Chamada HTTP real de login"""
         url = f"{self.url_base_sistema}/api/v2/login"
 
         payload = {
@@ -107,16 +147,12 @@ class NewCorbanClient:
 
         headers = self.headers_browser.copy()
         headers['content-type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
-
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(url, data=payload, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return data.get("token")
-                else:
-                    logger.error(f"❌ [NewCorban Auth] Falha no login: {response.status_code}")
-                    return None
-        except Exception as e:
-            logger.error(f"❌ [NewCorban Auth] Erro de conexão: {e}")
-            return None
+        
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(url, data=payload, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("token")
+            else:
+                logger.error(f"❌ [NewCorban Auth] Falha no login: {response.status_code}")
+                return None
