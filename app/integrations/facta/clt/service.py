@@ -120,7 +120,7 @@ class FactaCLTService:
                 tempo_trabalho = calcular_meses(data_admissao)
                 texto_admissao = formatar_display_tempo(data_admissao)
             
-                margem_minima_distribuicao = 100.00 if tempo_trabalho < 12 else 50.00
+                margem_minima_distribuicao = 150.00 if tempo_trabalho < 12 else 50.00
 
                 if margem < margem_minima_distribuicao:
                     logger.info(f"🚫 [CLT] Reprovado Facta e margem baixa ({margem}). Min: {margem_minima_distribuicao}. Encerrando.")

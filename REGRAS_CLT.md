@@ -43,7 +43,7 @@ Quando a Facta recusa (por Política, Idade, Score, Sem Oferta), aplicamos um fi
 
 3.  **Margem Dinâmica (Corte de Qualidade):**
     * Tempo de Casa **>= 12 meses**: Aceita margem > **R$ 50,00**.
-    * Tempo de Casa **< 12 meses**: Aceita margem > **R$ 100,00**.
+    * Tempo de Casa **< 12 meses**: Aceita margem > **R$ 150,00**.
 
 ---
 
