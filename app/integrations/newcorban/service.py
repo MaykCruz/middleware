@@ -174,7 +174,7 @@ class NewCorbanService:
         
         return "DESCONHECIDO"
     
-    def _formatar_saida_usuario(self, dados_raw: Dict[str, Any]) -> tuple:
+    def _formatar_saida_usuario(self, dados_raw: Dict[str, Any]) -> str:
         """
         Gera o texto amigável para exibir no Chat.
         Retorna: texto_formatado
@@ -201,7 +201,7 @@ class NewCorbanService:
         tipo = dados_raw.get("TIPO_CONTA")
 
         if not banco or not conta:
-            return "", ""
+            return ""
 
         banco_formatado = self.data_manager.get_nome_banco(str(banco))
         if not banco_formatado:

@@ -4,16 +4,17 @@ import json
 import logging
 from dotenv import load_dotenv
 
-# Carrega variáveis de ambiente (User/Senha)
+# Carrega variáveis de ambiente (User/Senha/Redis)
 load_dotenv()
 
 from app.integrations.newcorban.service import NewCorbanService
+from app.infrastructure.token_manager import TokenManager
 
 # Configura Logger para ver os prints
 logger = logging.getLogger(__name__)
 
-# CPF que sabemos que tem dados (do seu teste anterior)
-CPF_TESTE = "044.507.199-05" 
+# CPF que sabemos que tem dados no histórico
+CPF_TESTE = "14145125622" 
 
 @pytest.mark.skipif(not os.getenv('NEW_USER'), reason="Sem credenciais")
 def test_fluxo_completo_newcorban_service(caplog):
@@ -22,15 +23,33 @@ def test_fluxo_completo_newcorban_service(caplog):
     print(f"\n\n🧪 [TESTE SERVICE] Iniciando consulta normalizada para: {CPF_TESTE}")
     print("=" * 60)
 
-    # 1. Instancia o Service
+    # 1. Instancia o Service e o TokenManager
     try:
         service = NewCorbanService()
-        print("✅ Service instanciado com sucesso.")
+        token_manager = TokenManager()
+        print("✅ Services instanciados com sucesso.")
     except Exception as e:
-        pytest.fail(f"❌ Falha ao instanciar NewCorbanService: {e}")
+        pytest.fail(f"❌ Falha ao instanciar os serviços: {e}")
+
+    # =========================================================================
+    # 🧹 FAXINA: VAMOS VER O QUE TEM NO CACHE E DELETAR!
+    # =========================================================================
+    token_fantasma = token_manager.get_token("NEWCORBAN_INTERNAL")
+    print(f"\n👻 O que o Python está achando no Cache agora? -> '{token_fantasma}'")
+    
+    print("🗑️ Apagando o cache à força para forçar um novo login...")
+    
+    # Deleta a chave exata gerada pelo TokenManager
+    chave = token_manager._get_key("NEWCORBAN_INTERNAL")
+    try:
+        token_manager.redis.delete(chave)
+        print("✅ Cache limpo com sucesso!\n")
+    except Exception as e:
+        print(f"⚠️ Erro ao tentar limpar o cache: {e}\n")
+    # =========================================================================
 
     # 2. Chama o método principal (que será usado pelo BankAccountService)
-    print("\n🔄 Chamando consultar_conta_fallback()...")
+    print("🔄 Chamando consultar_conta_fallback()...")
     resultado = service.consultar_conta_fallback(CPF_TESTE)
 
     # 3. Análise do Resultado
@@ -58,9 +77,15 @@ def test_fluxo_completo_newcorban_service(caplog):
             print(f"   -> Conta Full: {raw.get('CONTA')}")
             
             if banco is None:
-                print("\n⚠️  ALERTA: O campo 'BANCO' veio None!")
-                print("   Possível causa: A chave no _normalizar_dados está 'banco_averba' mas a API manda 'banco_averbacao'.")
-                pytest.fail("Falha na normalização: Código do Banco não foi capturado.")
+                print("\n⚠️ ALERTA: O campo 'BANCO' veio None!")
+                print("   Buscando JSON bruto na API para inspecionar os nomes das chaves...")
+                
+                # Pega o JSON bruto direto do client para a gente ver o que veio
+                historico = service.client.get_bank_account_history(CPF_TESTE)
+                print("\n📦 JSON BRUTO DA API:")
+                print(json.dumps(historico[:2], indent=2, ensure_ascii=False) if historico else "Vazio ou Erro")
+                
+                pytest.fail("Falha na normalização: Código do Banco não foi capturado. Verifique o JSON acima.")
             else:
                 print("   ✅ Código do banco capturado corretamente.")
 
