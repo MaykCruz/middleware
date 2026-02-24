@@ -3,6 +3,7 @@ import os
 import logging
 from typing import Union, Dict, Any, Optional
 from app.services.bot.content.message_loader import MessageLoader
+from app.utils.retry_transport import RetryTransport
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,15 @@ class HuggyClient:
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
+    
+    def _get_http_client(self):
+        """Retorna um cliente HTTP configurado com retry para erros temporários de servidor."""
+        transport = RetryTransport(
+            max_retries=3,
+            backoff_factor=1.0,
+            retry_status_codes=[502, 503, 504]
+        )
+        return httpx.Client(timeout=60.0, transport=transport)
     
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:
         """
@@ -66,7 +76,7 @@ class HuggyClient:
         url = f"{self.base_url}/chats/{chat_id}/messages"
 
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with self._get_http_client() as client:
                 response = client.post(url, headers=self._get_headers(), json=payload)
                 response.raise_for_status()
                 
@@ -100,7 +110,7 @@ class HuggyClient:
             payload["variables"] = variables
 
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with self._get_http_client() as client:
                 response = client.post(url, headers=self._get_headers(), json=payload)
                 
                 # 200 OK - Sucesso (Body vazio)
@@ -138,7 +148,7 @@ class HuggyClient:
             action_name = f"mover para etapa {step_id}"
         
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with self._get_http_client() as client:
                 response = client.put(url, headers=self._get_headers(), json=payload)
 
                 if response.status_code == 200:
@@ -170,7 +180,7 @@ class HuggyClient:
             payload["comment"] = comment
         
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with self._get_http_client() as client:
                 response = client.put(url, headers=self._get_headers(), json=payload)
                 
                 if response.status_code == 200:
@@ -201,7 +211,7 @@ class HuggyClient:
             payload["message"] = message
         
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with self._get_http_client() as client:
                 response = client.post(url, headers=self._get_headers(), json=payload)
                 
                 if response.status_code == 200:

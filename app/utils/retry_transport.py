@@ -21,13 +21,15 @@ class RetryTransport(httpx.HTTPTransport):
 
                 if response.status_code in self.retry_status_codes:
                     if attempt < self.max_retries:
-                        raise httpx.HTTPStatusError(
-                            f"Status {response.status_code} exige retry", 
-                            request=request, 
-                            response=response
+                        wait_time = self.backoff_factor * (2 ** (attempt - 1))
+                        logger.warning(
+                            f"⚠️ [HTTP Retry] Status {response.status_code} recebido de {request.url}. "
+                            f"Retentando em {wait_time}s... (Tentativa {attempt}/{self.max_retries})"
                         )
+                        time.sleep(wait_time)
+                        continue
                     
-                    return response
+                return response
             
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout, httpx.NetworkError) as e:
                 if attempt == self.max_retries:
