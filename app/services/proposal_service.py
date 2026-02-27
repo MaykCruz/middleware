@@ -123,3 +123,7 @@ class ProposalService:
                     logger.warning("⚠️ [Proposal Global] Falha ao obter dados completos na Facta. CRM pulado.")
             except Exception as e_crm:
                 logger.error(f"⚠️ [Proposal Global] Erro ao integrar com NewCorban (Não crítico): {e_crm}")
+    
+    def close(self):
+        if hasattr(self, 'newcorban_service'):
+            self.newcorban_service.close()

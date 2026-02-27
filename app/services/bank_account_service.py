@@ -13,7 +13,7 @@ class BankAccountService:
     """
     def __init__(self, http_client: httpx.Client):
         self.provider_facta = FactaDadosCadastrais(http_client)
-        self.provider_newcorban = NewCorbanService(http_client)
+        self.provider_newcorban = NewCorbanService()
     
     def buscar_melhor_conta(self, cpf: str) -> Optional[Dict[str, Any]]:
         """

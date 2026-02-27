@@ -373,3 +373,7 @@ class NewCorbanService:
             'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
         }
         return estados.get(str(uf).upper(), '')
+    
+    def close(self):
+        """Fecha a conexão com a API do NewCorban"""
+        self.client.close()

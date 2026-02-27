@@ -28,10 +28,11 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
     tentativa_atual = self.request.retries + 1
     logger.info(f"⚙️ [Worker] Processando FGTS para CPF {cpf} (Tentativa {tentativa_atual})")
 
-    try:
-        fgts_service = FGTSService()
-        huggy = HuggyService()
+    facta_http_client = create_client()
+    fgts_service = FGTSService(http_client=facta_http_client)
+    huggy = HuggyService()
 
+    try:
         oferta = fgts_service.consultar_melhor_oportunidade(cpf, chat_id)
 
         logger.info(f"📤 [Worker FGTS] Resultado: {oferta.status} | Msg: {oferta.message_key} | ChatId: {chat_id}")
@@ -104,28 +105,25 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
     except MaxRetriesExceededError:
         logger.info(f"⏰ [Worker FGTS] Timeout: Desistindo após {MAX_RETRIES} tentativas.")
         try:
-            timeout_handler = HuggyService()
-            timeout_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="blank",
                 variables={"blank": "Limite de tentativas de processamento excedido."},
                 force_internal=True)
-            timeout_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="clt_limite_tentativas"
             )
         except Exception:
             pass
-
-        HuggyService().start_put_in_queue(chat_id)
+        huggy.start_put_in_queue(chat_id)
     
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
         logger.error(f"💥 [Worker FGTS] Erro crítico: {e}", exc_info=True)
         try:
-            erro_handler = HuggyService()
-            erro_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="retorno_desconhecido",
                 variables={"erro": _safe_error_string(e)},
@@ -134,10 +132,18 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_put_in_queue(chat_id)
+            huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
-            
+
+    finally:
+        try:
+            facta_http_client.close()
+            huggy.close()
+            logger.info(f"🧹 [Worker FGTS] Conexões HTTP encerradas com sucesso (Chat {chat_id}).")
+        except Exception as e:
+            logger.error(f"⚠️ [Worker FGTS] Falha não-crítica ao fechar conexões: {e}")    
+
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
     """
@@ -380,7 +386,6 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             )
         except Exception:
             pass
-
         huggy.start_put_in_queue(chat_id)
 
     except Exception as e:
@@ -401,6 +406,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
     finally:
         try:
             facta_http_client.close()
@@ -416,13 +422,15 @@ def executar_digitacao_fgts(self, chat_id: str):
     Acionada quando o cliente confirma a contratação.
     """
     logger.info(f"✍️ [Worker] Iniciando Digitação FGTS para Chat {chat_id}")
+
+    facta_http_client = create_client()
+    proposal_service = ProposalService(facta_http_client)
     huggy = HuggyService()
 
     try:
         huggy.send_message(chat_id, message_key="iniciando_digitacao")
         huggy.move_to_digitacao(chat_id)
 
-        proposal_service = ProposalService()
         resultado = proposal_service.executar_digitacao_fgts(chat_id)
 
         url_link = resultado.get("url_formalizacao")
@@ -460,8 +468,7 @@ def executar_digitacao_fgts(self, chat_id: str):
     
     except Exception as e:
         try:
-            erro_handler = HuggyService()
-            erro_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="retorno_desconhecido",
                 variables={"erro": _safe_error_string(e)},
@@ -470,9 +477,18 @@ def executar_digitacao_fgts(self, chat_id: str):
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_put_in_queue(chat_id)
+            huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+    finally:
+        try:
+            facta_http_client.close()
+            proposal_service.close()
+            huggy.close()
+            logger.info(f"🧹 [Worker] Conexões HTTP de Digitação encerradas (Chat {chat_id}).")
+        except Exception as e:
+            logger.error(f"⚠️ [Worker] Falha ao tentar fechar as conexões: {e}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_clt(self, chat_id: str):
@@ -480,13 +496,15 @@ def executar_digitacao_clt(self, chat_id: str):
     Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
     """
     logger.info(f"✍️ [Worker] Iniciando Digitação CLT para Chat {chat_id}")
+
+    facta_http_client = create_client()
+    proposal_service = ProposalService(facta_http_client)
     huggy = HuggyService()
 
     try:
         huggy.send_message(chat_id, message_key="iniciando_digitacao")
         huggy.move_to_digitacao(chat_id)
 
-        proposal_service = ProposalService()
         resultado = proposal_service.executar_digitacao_clt(chat_id)
 
         url_link = resultado.get("url_formalizacao")
@@ -534,8 +552,7 @@ def executar_digitacao_clt(self, chat_id: str):
     
     except Exception as e:
         try:
-            erro_handler = HuggyService()
-            erro_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="retorno_desconhecido",
                 variables={"erro": _safe_error_string(e)},
@@ -544,7 +561,15 @@ def executar_digitacao_clt(self, chat_id: str):
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_put_in_queue(chat_id)
+            huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
-            
+    
+    finally:
+        try:
+            facta_http_client.close()
+            proposal_service.close()
+            huggy.close()
+            logger.info(f"🧹 [Worker] Conexões HTTP de Digitação CLT encerradas (Chat {chat_id}).")
+        except Exception as e:
+            logger.error(f"⚠️ [Worker] Falha ao tentar fechar as conexões: {e}")
