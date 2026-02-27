@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from app.infrastructure.token_manager import TokenManager
+from app.utils.retry_transport import RetryTransport
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,21 @@ class NewCorbanClient:
             'sec-ch-ua-platform': '"Windows"',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
         }
+
+        self.http_client = self._create_client()
+    
+    def _create_client(self) -> httpx.Client:
+        """Cria o cliente HTTP com proteção de retries automáticos"""
+        transport = RetryTransport(
+            max_retries=3,
+            backoff_factor=1.5,
+            retry_status_codes=[429, 500, 502, 503, 504]
+        )
+        return httpx.Client(timeout=30.0, transport=transport)
+    
+    def close(self):
+        """Fecha a conexão HTTP quando a Task terminar"""
+        self.http_client.close()
     
     def get_bank_account_history(self, cpf: str) -> Optional[List[Dict[str, Any]]]:
         """
@@ -60,18 +76,17 @@ class NewCorbanClient:
         headers['Authorization'] = f"Bearer {token}"
 
         try:
-            with httpx.Client(timeout=15.0) as client:
-                response = client.get(url, params=params, headers=headers)
-                
-                if response.status_code == 200:
-                    try:
-                        return response.json()
-                    except Exception:
-                        logger.error(f"❌ [NewCorban Client] Erro ao decodificar JSON de histórico.")
-                        return None
-                else:
-                    logger.warning(f"⚠️ [NewCorban Client] Erro HTTP {response.status_code} ao buscar histórico.")
+            response = self.http_client.get(url, params=params, headers=headers)
+            
+            if response.status_code == 200:
+                try:
+                    return response.json()
+                except Exception:
+                    logger.error(f"❌ [NewCorban Client] Erro ao decodificar JSON de histórico.")
                     return None
+            else:
+                logger.warning(f"⚠️ [NewCorban Client] Erro HTTP {response.status_code} ao buscar histórico.")
+                return None
         except Exception as e:
             logger.error(f"❌ [NewCorban Client] Erro de conexão (Histórico): {e}")
             return None
@@ -83,15 +98,14 @@ class NewCorbanClient:
         url = f"{self.url_base_proposta}/propostas/"
         
         try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(url, json=payload)
-                
-                # Retorna um dict padronizado com status e dados
-                return {
-                    "status_code": response.status_code,
-                    "response_text": response.text,
-                    "success": response.status_code in [200, 201]
-                }
+            response = self.http_client.post(url, json=payload)
+            
+            # Retorna um dict padronizado com status e dados
+            return {
+                "status_code": response.status_code,
+                "response_text": response.text,
+                "success": response.status_code in [200, 201]
+            }
         except Exception as e:
             logger.error(f"❌ [NewCorban Client] Erro crítico ao criar proposta: {e}")
             return {"success": False, "error": str(e)}
@@ -148,11 +162,10 @@ class NewCorbanClient:
         headers = self.headers_browser.copy()
         headers['content-type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
         
-        with httpx.Client(timeout=10.0) as client:
-            response = client.post(url, data=payload, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("token")
-            else:
-                logger.error(f"❌ [NewCorban Auth] Falha no login: {response.status_code}")
-                return None
+        response = self.http_client.post(url, data=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("token")
+        else:
+            logger.error(f"❌ [NewCorban Auth] Falha no login: {response.status_code}")
+            return None

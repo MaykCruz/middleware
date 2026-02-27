@@ -1,4 +1,5 @@
 import logging
+import httpx
 from app.integrations.facta.clt.service import FactaCLTService
 from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
@@ -12,9 +13,9 @@ class CLTService:
     Service Global de CLT.
     Responsável por consultar múltiplos parceiros (Facta, etc.) e agregar/comparar os resultados.
     """
-    def __init__(self):
-        self.facta_service = FactaCLTService()
-        self.bank_service = BankAccountService()
+    def __init__(self, http_client: httpx.Client):
+        self.facta_service = FactaCLTService(http_client)
+        self.bank_service = BankAccountService(http_client)
         self.session_manager = SessionManager()
         
     def consultar_oportunidade(self, cpf: str, nome: str, celular: str, chat_id: str, enviar_link: bool = True) -> CreditOffer:

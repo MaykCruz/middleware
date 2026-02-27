@@ -16,6 +16,8 @@ class HuggyClient:
 
         if not self.api_token:
             logger.warning("⚠️ HUGGY_API_TOKEN não configurado. As chamadas à API falharão.")
+        
+        self.http_client = self._get_http_client()
 
     def _get_headers(self):
         return {
@@ -32,6 +34,10 @@ class HuggyClient:
             retry_status_codes=[502, 503, 504]
         )
         return httpx.Client(timeout=60.0, transport=transport)
+    
+    def close(self):
+        """Permite fechar o pool de conexões ao fim do uso"""
+        self.http_client.close()
     
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:
         """
@@ -76,18 +82,17 @@ class HuggyClient:
         url = f"{self.base_url}/chats/{chat_id}/messages"
 
         try:
-            with self._get_http_client() as client:
-                response = client.post(url, headers=self._get_headers(), json=payload)
-                response.raise_for_status()
-                
-                # Log rico para debug
-                log_extras = []
-                if "file" in payload: log_extras.append("📎 Com Arquivo")
-                if "options" in payload: log_extras.append("🔘 Com Botões")
-                if is_internal: log_extras.append("🔒 Interna")
-                
-                logger.info(f"📤 [Huggy] Msg '{message_key}' enviada. {' | '.join(log_extras)}")
-                return True
+            response = self.http_client.post(url, headers=self._get_headers(), json=payload)
+            response.raise_for_status()
+            
+            # Log rico para debug
+            log_extras = []
+            if "file" in payload: log_extras.append("📎 Com Arquivo")
+            if "options" in payload: log_extras.append("🔘 Com Botões")
+            if is_internal: log_extras.append("🔒 Interna")
+            
+            logger.info(f"📤 [Huggy] Msg '{message_key}' enviada. {' | '.join(log_extras)}")
+            return True
 
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ Erro HTTP Huggy no Chat {chat_id} ({e.response.status_code}): {e.response.text}")
@@ -110,22 +115,21 @@ class HuggyClient:
             payload["variables"] = variables
 
         try:
-            with self._get_http_client() as client:
-                response = client.post(url, headers=self._get_headers(), json=payload)
-                
-                # 200 OK - Sucesso (Body vazio)
-                if response.status_code == 200:
-                    logger.info(f"⚡ [Huggy] Flow {flow_id} disparado para Chat {chat_id}.")
-                    return True
-                
-                # 404/400 - Erros comuns
-                elif response.status_code in [400, 404]:
-                    logger.warning(f"⚠️ [Huggy] Falha ao disparar Flow {flow_id} (Chat {chat_id}): {response.text}")
-                    return False
-                
-                else:
-                    response.raise_for_status() # Lança erro para 5xx
-                    return False # Nunca chega aqui, mas agrada o linter
+            response = self.http_client.post(url, headers=self._get_headers(), json=payload)
+            
+            # 200 OK - Sucesso (Body vazio)
+            if response.status_code == 200:
+                logger.info(f"⚡ [Huggy] Flow {flow_id} disparado para Chat {chat_id}.")
+                return True
+            
+            # 404/400 - Erros comuns
+            elif response.status_code in [400, 404]:
+                logger.warning(f"⚠️ [Huggy] Falha ao disparar Flow {flow_id} (Chat {chat_id}): {response.text}")
+                return False
+            
+            else:
+                response.raise_for_status() # Lança erro para 5xx
+                return False # Nunca chega aqui, mas agrada o linter
 
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ Erro HTTP Huggy ao disparar flow no Chat {chat_id}: {e.response.text}")
@@ -148,17 +152,16 @@ class HuggyClient:
             action_name = f"mover para etapa {step_id}"
         
         try:
-            with self._get_http_client() as client:
-                response = client.put(url, headers=self._get_headers(), json=payload)
+            response = self.http_client.put(url, headers=self._get_headers(), json=payload)
 
-                if response.status_code == 200:
-                    logger.info(f"✅ [Huggy] Sucesso ao {action_name} (Chat {chat_id}).")
-                    return True
-                elif response.status_code == 404:
-                    logger.warning(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - Etapa informada não existe.")
-                else:
-                    logger.error(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - {response.text}")
-                    return False
+            if response.status_code == 200:
+                logger.info(f"✅ [Huggy] Sucesso ao {action_name} (Chat {chat_id}).")
+                return True
+            elif response.status_code == 404:
+                logger.warning(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - Etapa informada não existe.")
+            else:
+                logger.error(f"❌ [Huggy] Falha ao {action_name} (Chat {chat_id}): {response.status_code} - {response.text}")
+                return False
         except Exception as e:
             logger.error(f"❌ Erro de conexão Huggy ao {action_name} (Chat {chat_id}): {str(e)}")
             return False
@@ -180,18 +183,17 @@ class HuggyClient:
             payload["comment"] = comment
         
         try:
-            with self._get_http_client() as client:
-                response = client.put(url, headers=self._get_headers(), json=payload)
-                
-                if response.status_code == 200:
-                    logger.info(f"checkered_flag [Huggy] Chat {chat_id} fechado com sucesso.")
-                    return True
-                elif response.status_code == 404:
-                    logger.warning(f"⚠️ [Huggy] Tentativa de fechar chat {chat_id} que não existe (404).")
-                    return False
-                else:
-                    logger.error(f"❌ [Huggy] Falha ao fechar chat {chat_id}: {response.status_code} - {response.text}")
-                    return False
+            response = self.http_client.put(url, headers=self._get_headers(), json=payload)
+            
+            if response.status_code == 200:
+                logger.info(f"checkered_flag [Huggy] Chat {chat_id} fechado com sucesso.")
+                return True
+            elif response.status_code == 404:
+                logger.warning(f"⚠️ [Huggy] Tentativa de fechar chat {chat_id} que não existe (404).")
+                return False
+            else:
+                logger.error(f"❌ [Huggy] Falha ao fechar chat {chat_id}: {response.status_code} - {response.text}")
+                return False
 
         except Exception as e:
             logger.error(f"❌ Erro conexão Huggy ao fechar chat: {str(e)}")
@@ -211,15 +213,14 @@ class HuggyClient:
             payload["message"] = message
         
         try:
-            with self._get_http_client() as client:
-                response = client.post(url, headers=self._get_headers(), json=payload)
-                
-                if response.status_code == 200:
-                    logger.info(f"✅ [Huggy] Chat {chat_id} transferido para Agente {agent_id}.")
-                    return True
-                
-                logger.error(f"❌ [Huggy] Falha transf. Chat {chat_id}: {response.status_code} - {response.text}")
-                return False
+            response = self.http_client.post(url, headers=self._get_headers(), json=payload)
+            
+            if response.status_code == 200:
+                logger.info(f"✅ [Huggy] Chat {chat_id} transferido para Agente {agent_id}.")
+                return True
+            
+            logger.error(f"❌ [Huggy] Falha transf. Chat {chat_id}: {response.status_code} - {response.text}")
+            return False
                 
         except Exception as e:
             logger.error(f"❌ [Huggy] Erro conexão transfer_chat: {str(e)}")

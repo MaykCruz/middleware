@@ -1,15 +1,17 @@
 import logging
+import httpx
 from typing import Optional, Dict, Any
-from app.integrations.facta.auth import FactaAuth, create_client
+from app.integrations.facta.auth import FactaAuth
 from app.services.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
 
 class FactaDadosCadastrais:
-    def __init__(self):
+    def __init__(self, httpx_client: httpx.Client):
         self.auth = FactaAuth()
         self.base_url = self.auth.base_url
         self.data_manager = DataManager()
+        self.httpx_client = httpx_client
     
     @property
     def _get_headers(self):
@@ -25,30 +27,29 @@ class FactaDadosCadastrais:
         params = {"cpf": cpf}
 
         try:
-            with create_client() as client:
-                logger.info(f"🔎 [Facta] Consultando dados cadastrais completos para CPF {cpf}...")
-                response = client.get(url, headers=self._get_headers, params=params)
+            logger.info(f"🔎 [Facta] Consultando dados cadastrais completos para CPF {cpf}...")
+            response = self.httpx_client.get(url, headers=self._get_headers, params=params)
 
-                if response.status_code != 200:
-                    logger.warning(f"⚠️ [Facta] Erro API Consulta: {response.status_code}")
-                    return None
-                
-                data = response.json()
+            if response.status_code != 200:
+                logger.warning(f"⚠️ [Facta] Erro API Consulta: {response.status_code}")
+                return None
+            
+            data = response.json()
 
-                if data.get("erro") is True:
-                    return None
-                
-                cliente_lista = data.get("cliente", [])
-                if not cliente_lista:
-                    return None
-                
-                return cliente_lista[0]
+            if data.get("erro") is True:
+                return None
+            
+            cliente_lista = data.get("cliente", [])
+            if not cliente_lista:
+                return None
+            
+            return cliente_lista[0]
         
         except Exception as e:
             logger.error(f"❌ [Facta] Falha ao consultar dados cadastrais: {e}")
             return None
     
-    def buscar_conta_bancaria(self, cpf: str) -> Optional[Dict[Dict, str]]:
+    def buscar_conta_bancaria(self, cpf: str) -> Optional[Dict[str, Any]]:
         """
         Usa a consulta completa para extrair e formatar apenas dados bancários.
         """

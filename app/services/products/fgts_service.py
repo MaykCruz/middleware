@@ -1,4 +1,5 @@
 import logging
+import httpx
 from app.integrations.facta.fgts.service import FactaFGTSService
 from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
@@ -13,9 +14,9 @@ class FGTSService:
     Service Global de FGTS.
     Responsável por consultar múltiplos parceiros (Facta, etc.) e agregar/comparar os resultados.
     """
-    def __init__(self):
-        self.facta_service = FactaFGTSService()
-        self.bank_service = BankAccountService()
+    def __init__(self, http_client: httpx.Client):
+        self.facta_service = FactaFGTSService(http_client)
+        self.bank_service = BankAccountService(http_client)
         self.session_manager = SessionManager()
 
     def consultar_melhor_oportunidade(self, cpf: str, chat_id: str) -> CreditOffer:

@@ -1,8 +1,6 @@
 import logging
-import ssl
-import time
 import httpx
-from app.integrations.facta.auth import FactaAuth, create_client
+from app.integrations.facta.auth import FactaAuth
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +12,10 @@ class FactaCLTAdapter:
     RENDA_PADRAO = 3000
     CNA_PADRAO = 10
 
-    def __init__(self):
+    def __init__(self, http_client: httpx.Client):
         self.auth = FactaAuth()
         self.base_url = self.auth.base_url
+        self.http_client = http_client
 
     @property
     def _get_headers(self):
@@ -48,19 +47,18 @@ class FactaCLTAdapter:
         }
 
         try:
-            with create_client() as client:
-                logger.info(f"📜 [Facta CLT] Solicitando termo para {cpf}...")
-                resp = client.post(url, headers=headers, data=data)
-                data = resp.json()
+            logger.info(f"📜 [Facta CLT] Solicitando termo para {cpf}...")
+            resp = self.http_client.post(url, headers=headers, data=data)
+            data = resp.json()
 
-                status = self._interpretar_retorno_termo(data)
+            status = self._interpretar_retorno_termo(data)
 
-                return {
-                    "status": status,
-                    "msg_original": data.get("mensagem", ""),
-                    "dados": data
-                }
-            
+            return {
+                "status": status,
+                "msg_original": data.get("mensagem", ""),
+                "dados": data
+            }
+        
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao solicitar termo: {e}")
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
@@ -72,40 +70,28 @@ class FactaCLTAdapter:
         url = f"{self.base_url}/consignado-trabalhador/autoriza-consulta"
         params = {"cpf": cpf}
 
-        max_retries = 3
-
         try:
-            for tentativa in range(1, max_retries + 1):
-                try:
-                    with create_client() as client:
-                        logger.info(f"🔍 [Facta CLT] Iniciando consulta de dados para {cpf}...")
-                        resp = client.get(url, headers=self._get_headers, params=params)
-                        resp.raise_for_status()
-                        data = resp.json()
+            logger.info(f"🔍 [Facta CLT] Iniciando consulta de dados para {cpf}...")
+            resp = self.http_client.get(url, headers=self._get_headers, params=params)
+            resp.raise_for_status()
+            data = resp.json()
 
-                        msg = data.get("mensagem", "").lower()
+            msg = data.get("mensagem", "").lower()
 
-                        if data.get("erro") and "fila de autorização" in msg:
-                            return {
-                                "status": "PROCESSAMENTO_PENDENTE",
-                                "dados": [],
-                                "msg_original": data.get("mensagem", "")
-                            }
+            if data.get("erro") and "fila de autorização" in msg:
+                return {
+                    "status": "PROCESSAMENTO_PENDENTE",
+                    "dados": [],
+                    "msg_original": data.get("mensagem", "")
+                }
 
-                        status = self._interpretar_retorno_dados_trabalhador(data)
+            status = self._interpretar_retorno_dados_trabalhador(data)
 
-                        return {
-                            "status": status,
-                            "dados": data.get("dados_trabalhador", {}).get("dados", []),
-                            "msg_original": data.get("mensagem", "")
-                        }
-                except (httpx.RequestError, ssl.SSLError, httpx.ReadError, httpx.ConnectError) as e:
-                    if tentativa < max_retries:
-                        logger.warning(f"⚠️ [Facta CLT] Instabilidade de conexão ({e}). Tentando novamente em 1s...")
-                        time.sleep(1.0)
-                        continue
-                    else:
-                        raise e
+            return {
+                "status": status,
+                "dados": data.get("dados_trabalhador", {}).get("dados", []),
+                "msg_original": data.get("mensagem", "")
+            }
         
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao consultar dados trabalhador: {e}")
@@ -127,39 +113,38 @@ class FactaCLTAdapter:
         }
 
         try:
-            with create_client() as client:
-                resp = client.get(url, headers=self._get_headers, params=params)
-                data = resp.json()
+            resp = self.http_client.get(url, headers=self._get_headers, params=params)
+            data = resp.json()
 
-                def tem_valor_disponivel(dado):
-                    val = dado.get("valor_maximo_disponivel")
-                    try:
-                        tem_valor = val is not None and float(val) > 0
-                    except (ValueError, TypeError):
-                        tem_valor = False
-                    
-                    prazo = dado.get("prazo_maximo_disponivel")
-                    tem_prazo = prazo is not None
-
-                    return tem_valor and tem_prazo
-
-                if data.get("erro") is True:
-                    status = "ERRO_TECNICO"
-
-                elif str(data.get("aprovado")) == "1":
-                    status = "SUCESSO"
+            def tem_valor_disponivel(dado):
+                val = dado.get("valor_maximo_disponivel")
+                try:
+                    tem_valor = val is not None and float(val) > 0
+                except (ValueError, TypeError):
+                    tem_valor = False
                 
-                elif str(data.get("aprovado")) == "0" and tem_valor_disponivel(data):
-                    status = "SUCESSO"
-                
-                elif str(data.get("aprovado")) == "0":
-                    status = "REPROVADO_POLITICA_FACTA"
+                prazo = dado.get("prazo_maximo_disponivel")
+                tem_prazo = prazo is not None
 
-                else:
-                    logger.warning(f"⚠️ [Facta] Retorno desconhecido na política: {data}")
-                    status = "ERRO_TECNICO"
-                
-                return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
+                return tem_valor and tem_prazo
+
+            if data.get("erro") is True:
+                status = "ERRO_TECNICO"
+
+            elif str(data.get("aprovado")) == "1":
+                status = "SUCESSO"
+            
+            elif str(data.get("aprovado")) == "0" and tem_valor_disponivel(data):
+                status = "SUCESSO"
+            
+            elif str(data.get("aprovado")) == "0":
+                status = "REPROVADO_POLITICA_FACTA"
+
+            else:
+                logger.warning(f"⚠️ [Facta] Retorno desconhecido na política: {data}")
+                status = "ERRO_TECNICO"
+            
+            return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
 
         except Exception as e:
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
@@ -189,20 +174,19 @@ class FactaCLTAdapter:
             params["valor_parcela"] = valor_parcela or 0
         
         try:
-            with create_client() as client:
-                logger.info(f"🧮 [Facta CLT] Buscando operações para {cpf}...")
-                resp = client.get(url, headers=self._get_headers, params=params)
-                data = resp.json()
+            logger.info(f"🧮 [Facta CLT] Buscando operações para {cpf}...")
+            resp = self.http_client.get(url, headers=self._get_headers, params=params)
+            data = resp.json()
 
-                msg = data.get("mensagem", "")
+            msg = data.get("mensagem", "")
 
-                if data.get("erro") and not msg:
-                    raw_tabelas = data.get("tabelas")
-                    if isinstance(raw_tabelas, str):
-                        msg = raw_tabelas
+            if data.get("erro") and not msg:
+                raw_tabelas = data.get("tabelas")
+                if isinstance(raw_tabelas, str):
+                    msg = raw_tabelas
 
-                status = "ERRO_OPERACOES" if data.get("erro") else "SUCESSO"
-                return {"status": status, "dados": data, "msg_original": msg}
+            status = "ERRO_OPERACOES" if data.get("erro") else "SUCESSO"
+            return {"status": status, "dados": data, "msg_original": msg}
 
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao buscar operações: {e}")
@@ -247,6 +231,3 @@ class FactaCLTAdapter:
             return "CPF_NAO_ENCONTRADO_NA_BASE"
         
         return "RETORNO_DESCONHECIDO"
-        
-        
-

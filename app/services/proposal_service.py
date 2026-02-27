@@ -1,4 +1,5 @@
 import logging
+import httpx
 from typing import Dict, Any
 from app.integrations.facta.proposal.service import FactaProposalService
 from app.services.bot.memory.session import SessionManager
@@ -13,12 +14,12 @@ class ProposalService:
     Serviço de Aplicação (Global).
     Responsável por gerenciar a Sessão do Usuário (Redis) e acionar a integração correta.
     """
-    def __init__(self):
-        self.facta_service = FactaProposalService()
+    def __init__(self, facta_http_client: httpx.Client):
+        self.facta_service = FactaProposalService(facta_http_client)
         self.session_manager = SessionManager()
 
         self.newcorban_service = NewCorbanService()
-        self.facta_dados = FactaDadosCadastrais()
+        self.facta_dados = FactaDadosCadastrais(facta_http_client)
     
     def executar_digitacao_fgts(self, chat_id: str) -> Dict[str, Any]:
         """
@@ -122,3 +123,7 @@ class ProposalService:
                     logger.warning("⚠️ [Proposal Global] Falha ao obter dados completos na Facta. CRM pulado.")
             except Exception as e_crm:
                 logger.error(f"⚠️ [Proposal Global] Erro ao integrar com NewCorban (Não crítico): {e_crm}")
+    
+    def close(self):
+        if hasattr(self, 'newcorban_service'):
+            self.newcorban_service.close()

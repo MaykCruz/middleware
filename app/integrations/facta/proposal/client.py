@@ -1,7 +1,7 @@
 import logging
 import httpx
 from typing import Dict, Any
-from app.integrations.facta.auth import FactaAuth, create_client
+from app.integrations.facta.auth import FactaAuth
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +14,10 @@ class FactaProposalClient:
     Cliente especializado na esteira de digitação.
     Responsável apenas pelo transporte HTTP (POST/GET) para os endpoints de proposta.
     """
-    def __init__(self):
+    def __init__(self, http_client: httpx.Client):
         self.auth = FactaAuth()
         self.base_url = self.auth.base_url
+        self.http_client = http_client
     
     @property
     def _get_headers(self):
@@ -32,29 +33,28 @@ class FactaProposalClient:
         url = f"{self.base_url}{endpoint}"
 
         try:
-            with create_client() as client:
-                logger.info(f"📝 [Proposal Client] POST {endpoint} | Payload keys: {list(payload.keys())}")
+            logger.info(f"📝 [Proposal Client] POST {endpoint} | Payload keys: {list(payload.keys())}")
 
-                if use_json:
-                    resp = client.post(url, headers=self._get_headers, json=payload)
-                else:
-                    clean_payload = {k: v for k, v in payload.items() if v is not None}
-                    resp = client.post(url, headers=self._get_headers, data=clean_payload)
+            if use_json:
+                resp = self.http_client.post(url, headers=self._get_headers, json=payload)
+            else:
+                clean_payload = {k: v for k, v in payload.items() if v is not None}
+                resp = self.http_client.post(url, headers=self._get_headers, data=clean_payload)
+            
+            resp.raise_for_status()
+            data = resp.json()
+
+            if isinstance(data, dict) and data.get("erro") is True:
+                msg = str(data.get("mensagem") or data.get("msg") or "Erro desconhecido").lower()
+
+                if "contrato em andamento" in msg:
+                    logger.warning(f"⚠️ [Proposal Client] Bloqueio de Negócio: {msg}")
+                    raise FactaContratoAndamentoError(msg)
                 
-                resp.raise_for_status()
-                data = resp.json()
-
-                if isinstance(data, dict) and data.get("erro") is True:
-                    msg = str(data.get("mensagem") or data.get("msg") or "Erro desconhecido").lower()
-
-                    if "contrato em andamento" in msg:
-                        logger.warning(f"⚠️ [Proposal Client] Bloqueio de Negócio: {msg}")
-                        raise FactaContratoAndamentoError(msg)
-                    
-                    logger.error(f"❌ [Proposal Client] Erro de Negócio em {endpoint}: {msg}")
-                    raise ValueError(f"Facta Error: {msg}")
-                
-                return data
+                logger.error(f"❌ [Proposal Client] Erro de Negócio em {endpoint}: {msg}")
+                raise ValueError(f"Facta Error: {msg}")
+            
+            return data
         
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ [Proposal Client] Erro HTTP {e.response.status_code} em {endpoint}: {e.response.text}")

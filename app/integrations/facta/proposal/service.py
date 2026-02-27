@@ -1,8 +1,7 @@
 import logging
 import re
+import httpx
 from typing import Dict, Any
-from datetime import datetime
-
 from app.integrations.facta.proposal.client import FactaProposalClient
 from app.integrations.facta.proposal.schemas import ProposalStep1FGTS, ProposalStep2Base, ProposalStep1CLT, ProposalStep2CLT
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
@@ -15,9 +14,9 @@ class FactaProposalService:
     Serviço especialista em digitação Facta.
     Responsável por validar os dados (Schemas) e orquestrar as chamadas ao Client.
     """
-    def __init__(self):
-        self.client = FactaProposalClient()
-        self.consulta_dados = FactaDadosCadastrais()
+    def __init__(self, http_client: httpx.Client):
+        self.client = FactaProposalClient(http_client)
+        self.consulta_dados = FactaDadosCadastrais(http_client)
         self.data_manager = DataManager()
     
     def _limpar_numeros(self, texto: str) -> str:
