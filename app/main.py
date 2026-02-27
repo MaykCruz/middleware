@@ -3,9 +3,7 @@ import redis
 from fastapi import FastAPI, Header, HTTPException, status, Depends
 from dotenv import load_dotenv
 from app.infrastructure.celery import celery_app
-from app.routers import webhooks
-from app.routers import api_fgts
-from app.routers import api_clt
+from app.routers import webhooks, api_fgts, api_clt, webhook_chatguru
 from app.core.logger import setup_logging
 
 load_dotenv()
@@ -16,6 +14,7 @@ app = FastAPI(title="Huggy Middleware API")
 app.include_router(webhooks.router)
 app.include_router(api_fgts.router)
 app.include_router(api_clt.router)
+app.include_router(webhook_chatguru.router)
 
 def verify_admin_token(x_admin_token: str = Header(default=None)):
     """
