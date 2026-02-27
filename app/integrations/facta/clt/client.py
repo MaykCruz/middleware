@@ -1,7 +1,4 @@
 import logging
-import ssl
-import time
-import httpx
 from app.integrations.facta.auth import FactaAuth, create_client
 
 logger = logging.getLogger(__name__)
@@ -72,40 +69,29 @@ class FactaCLTAdapter:
         url = f"{self.base_url}/consignado-trabalhador/autoriza-consulta"
         params = {"cpf": cpf}
 
-        max_retries = 3
-
         try:
-            for tentativa in range(1, max_retries + 1):
-                try:
-                    with create_client() as client:
-                        logger.info(f"🔍 [Facta CLT] Iniciando consulta de dados para {cpf}...")
-                        resp = client.get(url, headers=self._get_headers, params=params)
-                        resp.raise_for_status()
-                        data = resp.json()
+            with create_client() as client:
+                logger.info(f"🔍 [Facta CLT] Iniciando consulta de dados para {cpf}...")
+                resp = client.get(url, headers=self._get_headers, params=params)
+                resp.raise_for_status()
+                data = resp.json()
 
-                        msg = data.get("mensagem", "").lower()
+                msg = data.get("mensagem", "").lower()
 
-                        if data.get("erro") and "fila de autorização" in msg:
-                            return {
-                                "status": "PROCESSAMENTO_PENDENTE",
-                                "dados": [],
-                                "msg_original": data.get("mensagem", "")
-                            }
+                if data.get("erro") and "fila de autorização" in msg:
+                    return {
+                        "status": "PROCESSAMENTO_PENDENTE",
+                        "dados": [],
+                        "msg_original": data.get("mensagem", "")
+                    }
 
-                        status = self._interpretar_retorno_dados_trabalhador(data)
+                status = self._interpretar_retorno_dados_trabalhador(data)
 
-                        return {
-                            "status": status,
-                            "dados": data.get("dados_trabalhador", {}).get("dados", []),
-                            "msg_original": data.get("mensagem", "")
-                        }
-                except (httpx.RequestError, ssl.SSLError, httpx.ReadError, httpx.ConnectError) as e:
-                    if tentativa < max_retries:
-                        logger.warning(f"⚠️ [Facta CLT] Instabilidade de conexão ({e}). Tentando novamente em 1s...")
-                        time.sleep(1.0)
-                        continue
-                    else:
-                        raise e
+                return {
+                    "status": status,
+                    "dados": data.get("dados_trabalhador", {}).get("dados", []),
+                    "msg_original": data.get("mensagem", "")
+                }
         
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao consultar dados trabalhador: {e}")
