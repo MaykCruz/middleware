@@ -21,8 +21,8 @@ class NewCorbanClient:
         self.password = os.getenv('NEW_PASSWORD')
         self.empresa = os.getenv('NEW_EMPRESA')
 
-        self.server_user = os.getenv('NEW_USER')
-        self.server_pass = os.getenv('NEW_PASSWORD')
+        self.server_user = os.getenv('NEW_SERVER_USER')
+        self.server_pass = os.getenv('NEW_SERVER_PASSWORD')
         self.server_empresa = os.getenv('NEW_EMPRESA')
 
         self.token_manager = TokenManager()
