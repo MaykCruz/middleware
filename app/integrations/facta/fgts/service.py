@@ -1,12 +1,13 @@
 import logging
+import httpx
 from typing import Dict, Any
 from app.integrations.facta.fgts.client import FactaFGTSAdapter
 
 logger = logging.getLogger(__name__)
 
 class FactaFGTSService:
-    def __init__(self):
-        self.adapter = FactaFGTSAdapter()
+    def __init__(self, http_client: httpx.Client):
+        self.adapter = FactaFGTSAdapter(http_client)
 
     def simular_antecipacao(self, cpf: str) -> Dict[str, Any]:
         """

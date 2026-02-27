@@ -1,13 +1,15 @@
 import logging
-from app.integrations.facta.auth import FactaAuth, create_client
+import httpx
+from app.integrations.facta.auth import FactaAuth
 from app.utils.formatters import parse_valor_monetario
 
 logger = logging.getLogger(__name__)
 
 class FactaFGTSAdapter:
-    def __init__(self):
+    def __init__(self, http_client: httpx.Client):
         self.auth = FactaAuth()
         self.base_url = self.auth.base_url
+        self.http_client = http_client
 
     @property
     def _get_headers(self):
@@ -22,18 +24,17 @@ class FactaFGTSAdapter:
         params = {"cpf": cpf, "banco": "facta"}
 
         try:
-            with create_client() as client:
-                logger.info(f"💰 [Facta] Consultando saldo para CPF {cpf}...")
-                response = client.get(url, headers=self._get_headers, params=params)
-                data = response.json()
+            logger.info(f"💰 [Facta] Consultando saldo para CPF {cpf}...")
+            response = self.http_client.get(url, headers=self._get_headers, params=params)
+            data = response.json()
 
-                status = self._interpretar_retorno(data)
-        
-                return {
-                    "status": status,
-                    "dados": data.get("retorno", {}),
-                    "msg_original": data.get("mensagem", "")
-                }
+            status = self._interpretar_retorno(data)
+    
+            return {
+                "status": status,
+                "dados": data.get("retorno", {}),
+                "msg_original": data.get("mensagem", "")
+            }
         except Exception as e:
             logger.error(f"Erro Saldo: {e}")
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
@@ -57,22 +58,21 @@ class FactaFGTSAdapter:
         }
 
         try:
-            with create_client() as client:
-                resp = client.post(url, headers=self._get_headers, json=body)
-                data = resp.json()
-                
-                # Verifica se aprovou
-                if data.get("permitido", "").upper() == "SIM":
-                    return {
-                        "status": "APROVADO",
-                        "valor_liquido": parse_valor_monetario(data.get("valor_liquido")),
-                        "raw": data
-                    }
-                else:
-                    return {
-                        "status": "REPROVADO", 
-                        "msg_original": data.get("msg")
-                    }
+            resp = self.http_client.post(url, headers=self._get_headers, json=body)
+            data = resp.json()
+            
+            # Verifica se aprovou
+            if data.get("permitido", "").upper() == "SIM":
+                return {
+                    "status": "APROVADO",
+                    "valor_liquido": parse_valor_monetario(data.get("valor_liquido")),
+                    "raw": data
+                }
+            else:
+                return {
+                    "status": "REPROVADO", 
+                    "msg_original": data.get("msg")
+                }
         except Exception as e:
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
         

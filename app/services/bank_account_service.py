@@ -1,4 +1,5 @@
 import logging
+import httpx
 from typing import Optional, Dict, Any
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 from app.integrations.newcorban.service import NewCorbanService
@@ -10,9 +11,9 @@ class BankAccountService:
     Service Especialista em Localização de Contas Bancárias.
     Atua como uma 'Fachada' para múltiplas fontes de dados (Facta, NewCorban, etc).
     """
-    def __init__(self):
-        self.provider_facta = FactaDadosCadastrais()
-        self.provider_newcorban = NewCorbanService()
+    def __init__(self, http_client: httpx.Client):
+        self.provider_facta = FactaDadosCadastrais(http_client)
+        self.provider_newcorban = NewCorbanService(http_client)
     
     def buscar_melhor_conta(self, cpf: str) -> Optional[Dict[str, Any]]:
         """

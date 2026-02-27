@@ -1,4 +1,5 @@
 import logging
+import httpx
 from datetime import datetime
 from app.integrations.facta.clt.client import FactaCLTAdapter
 from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses, formatar_moeda
@@ -7,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 class FactaCLTService:
 
-    def __init__(self):
-        self.client = FactaCLTAdapter()
+    def __init__(self, http_client: httpx.Client):
+        self.adapter = FactaCLTAdapter(http_client)
     
     def simular_clt(self, cpf: str, nome: str, celular: str, enviar_link_se_necessario: bool = True) -> dict:
         """
@@ -17,7 +18,7 @@ class FactaCLTService:
         2. Se der TOKEN_EXPIRADO -> Solicita Termo.
         3. Se não precisar de termo -> Segue fluxo normal.
         """
-        resp_dados = self.client.consultar_dados_trabalhador(cpf)
+        resp_dados = self.adapter.consultar_dados_trabalhador(cpf)
         status_dados = resp_dados["status"]
 
         if status_dados == "PROCESSAMENTO_PENDENTE":
@@ -38,7 +39,7 @@ class FactaCLTService:
 
             logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
 
-            resp_termo = self.client.solicitar_termo(cpf, nome, celular)
+            resp_termo = self.adapter.solicitar_termo(cpf, nome, celular)
             status_termo = resp_termo["status"]
 
             if status_termo == "TERMO_ENVIADO":
@@ -57,7 +58,7 @@ class FactaCLTService:
             
             if status_termo == "TERMO_JA_AUTORIZADO":
                 logger.info(f"🔄 [CLT] Token renovado/válido. Retentando consulta de dados...")
-                resp_dados = self.client.consultar_dados_trabalhador(cpf)
+                resp_dados = self.adapter.consultar_dados_trabalhador(cpf)
                 status_dados = resp_dados["status"]
             else:
                 return {
@@ -106,7 +107,7 @@ class FactaCLTService:
         
         margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
         
-        resp_politica = self.client.validar_politica_credito(
+        resp_politica = self.adapter.validar_politica_credito(
             cpf,
             matricula=trabalhador.get("matricula", ""),
             nascimento=trabalhador.get("dataNascimento"),
@@ -275,7 +276,7 @@ class FactaCLTService:
         Busca operações e filtra estritamente pelo prazo e valor da política.
         """
         nasc = trab.get("dataNascimento")
-        resp = self.client.buscar_operacoes(cpf, nasc, valor_parcela=parcela_max)
+        resp = self.adapter.buscar_operacoes(cpf, nasc, valor_parcela=parcela_max)
 
         oferta_encontrada = None
         motivo_falha = "SEM_OPERACOES"
@@ -406,7 +407,7 @@ class FactaCLTService:
         Refaz a simulação limitando pelo valor (Opção 1), mantendo o prazo.
         Baseado em operacoes_disponiveis_valor do api_facta.py.
         """
-        resp = self.client.buscar_operacoes(cpf, nasc, valor_solicitado=valor_teto)
+        resp = self.adapter.buscar_operacoes(cpf, nasc, valor_solicitado=valor_teto)
 
         msg_erro = str(resp.get("msg_original", "")).lower()
 

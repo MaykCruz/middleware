@@ -2,13 +2,13 @@ import logging
 import httpx
 from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
+from app.integrations.facta.auth import create_client
 from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
 from app.services.proposal_service import ProposalService
 from app.integrations.facta.proposal.client import FactaContratoAndamentoError
 from app.integrations.huggy.service import HuggyService
 from app.schemas.credit import AnalysisStatus
-from app.utils.formatters import formatar_moeda
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +151,11 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
 
     logger.info(f"⚙️ [Worker] Processando CLT para CPF {cpf} (Tentativa {tentativa_atual})")
 
-    try:
-        clt_service = CLTService()
-        huggy = HuggyService()
+    facta_http_client = create_client()
+    clt_service = CLTService(http_client=facta_http_client)
+    huggy = HuggyService()
 
+    try:
         oferta = clt_service.consultar_oportunidade(cpf, nome, celular, chat_id, enviar_link=enviar_link)
 
         logger.info(f"📤 [Worker] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
@@ -368,28 +369,27 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
     except MaxRetriesExceededError:
         logger.info(f"⏰ [Worker CLT] Timeout: Limite de tentativas excedido para {cpf}")
         try:
-            timeout_handler = HuggyService()
-            timeout_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="blank",
                 variables={"blank": "Limite de tentativas de processamento excedido."},
                 force_internal=True)
-            timeout_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="clt_limite_tentativas"
             )
         except Exception:
             pass
 
-        HuggyService().start_put_in_queue(chat_id)
+        huggy.start_put_in_queue(chat_id)
 
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
+        
         logger.error(f"💥 [Worker CLT] Erro crítico: {e}", exc_info=True)
         try:
-            erro_handler = HuggyService()
-            erro_handler.send_message(
+            huggy.send_message(
                 chat_id=chat_id,
                 message_key="retorno_desconhecido",
                 variables={"erro": _safe_error_string(e)},
@@ -398,9 +398,16 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
             logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
         
         try:
-            HuggyService().start_put_in_queue(chat_id)
+            huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+    finally:
+        try:
+            facta_http_client.close()
+            huggy.close()
+            logger.info(f"🧹 [Worker] Conexões HTTP (Facta e Huggy) encerradas com sucesso (Chat {chat_id}).")
+        except Exception as e:
+            logger.error(f"⚠️ [Worker] Falha não-crítica ao tentar fechar as conexões: {e}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_fgts(self, chat_id: str):
