@@ -7,6 +7,22 @@ from app.utils.retry_transport import RetryTransport
 
 logger = logging.getLogger(__name__)
 
+_global_huggy_client = None
+
+def get_huggy_client():
+    """
+    Singleton do Cliente HTTP Huggy.
+    Evita o erro de EOF e Timeout mantendo um único pool por Worker.
+    """
+    global _global_huggy_client
+    if _global_huggy_client is None or _global_huggy_client.is_closed:
+        transport = RetryTransport(max_retries=3, backoff_factor=1.0, retry_status_codes=[502, 503, 504])
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=10.0)
+
+        _global_huggy_client = httpx.Client(timeout=60.0, transport=transport, limits= limits)
+    
+    return _global_huggy_client
+
 class HuggyClient:
     API_VALUE_EXIT_WORKFLOW = ""
 
@@ -17,7 +33,7 @@ class HuggyClient:
         if not self.api_token:
             logger.warning("⚠️ HUGGY_API_TOKEN não configurado. As chamadas à API falharão.")
         
-        self.http_client = self._get_http_client()
+        self.http_client = get_huggy_client()
 
     def _get_headers(self):
         return {
@@ -25,19 +41,6 @@ class HuggyClient:
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-    
-    def _get_http_client(self):
-        """Retorna um cliente HTTP configurado com retry para erros temporários de servidor."""
-        transport = RetryTransport(
-            max_retries=3,
-            backoff_factor=1.0,
-            retry_status_codes=[502, 503, 504]
-        )
-        return httpx.Client(timeout=60.0, transport=transport)
-    
-    def close(self):
-        """Permite fechar o pool de conexões ao fim do uso"""
-        self.http_client.close()
     
     def send_message(self, chat_id: int, message_key: str, variables: Dict[str, Any] = None, file_url: Optional[str] = None, force_internal: bool = False) -> bool:
         """

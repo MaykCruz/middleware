@@ -8,11 +8,17 @@ from app.infrastructure.token_manager import TokenManager
 
 logger = logging.getLogger(__name__)
 
+_global_facta_client = None
+
 def create_client(timeout: float = 30.0) -> httpx.Client:
-        """
-        Fábrica única de Clientes HTTP para a Facta.
-        Já injeta Proxy (se existir no .env) e define o Timeout padrão.
-        """
+    """
+    Singleton do Cliente HTTP Facta.
+    Garante que apenas um pool seja criado por worker do Celery
+    """
+    global _global_facta_client
+
+    if _global_facta_client is None or _global_facta_client.is_closed:
+
         proxy_url = os.getenv("FACTA_PROXY_URL")
 
         retry_transport = RetryTransport(
@@ -21,9 +27,16 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
             retry_status_codes=[520, 502, 503, 504, 429]
         )
 
+        limits = httpx.Limits(
+            max_keepalive_connections=20,
+            max_connections=50,
+            keepalive_expiry=10.0
+        )
+
         client_kwargs = {
             "timeout": timeout,
-            "transport": retry_transport
+            "transport": retry_transport,
+            "limits": limits
         }
 
         if proxy_url:
@@ -33,7 +46,9 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
         else:
             logger.warning("⚠️ [Network] FACTA_PROXY_URL não definido. Usando conexão direta.")
         
-        return httpx.Client(**client_kwargs)
+        _global_facta_client = httpx.Client(**client_kwargs)
+
+    return _global_facta_client
 
 class FactaAuth:
     def __init__(self):
@@ -98,18 +113,18 @@ class FactaAuth:
         }
 
         try:
-            with create_client() as client:
-                response = client.get(url, headers=headers)
-                response.raise_for_status()
+            client = create_client()
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
 
-                data = response.json()
-                token = data.get("token")
+            data = response.json()
+            token = data.get("token")
 
-                if not token:
-                    raise ValueError("API retornou 200 mas sem campo 'token'.")
-                
-                logger.info("✅ [FACTA] Token renovado com sucesso via Proxy.")
-                return token
+            if not token:
+                raise ValueError("API retornou 200 mas sem campo 'token'.")
+            
+            logger.info("✅ [FACTA] Token renovado com sucesso via Proxy.")
+            return token
             
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ [FACTA] Erro HTTP {e.response.status_code}: {e.response.text}")
