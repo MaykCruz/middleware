@@ -585,10 +585,11 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
     tentativa_atual = self.request.retries + 1
     logger.info(f"⚙️ [Worker ChatGuru] Processando CLT para CPF {cpf} (Tentativa {tentativa_atual})")
 
-    try:
-        clt_service = CLTService()
-        chatguru = ChatGuruService(chat_id)
+    facta_http_client = create_client()
+    clt_service = CLTService(http_client=facta_http_client)
+    chatguru = ChatGuruService(chat_id)
 
+    try:
         oferta = clt_service.consultar_oportunidade(cpf, nome, celular, chat_id, enviar_link=enviar_link)
 
         logger.info(f"📤 [Worker ChatGuru] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
@@ -659,7 +660,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                         chat_id=chat_id, 
                         message_key="clt_termo_nao_identificado"
                     )
-                    chatguru.start_flow_wait_term2(chat_id)
+                    chatguru.start_flow_wait_term2(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE ESPERA DE TERMO NO CHATGURU
 
         chatguru.send_message(
             chat_id=chat_id, 
@@ -675,10 +676,11 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker ChatGuru] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
 
-                # chatguru.start_flow_digitacao_clt(chat_id) # Adapte se houver flow no ChatGuru
+                chatguru.start_flow_digitacao_clt(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE CLT NO CHATGURU
 
             else:
                 logger.info(f"⚠️ [Worker ChatGuru] Cliente {cpf} aprovado mas sem dados bancários completos.")
+                chatguru.move_to_aprovado(chat_id)
                 chatguru.start_auto_distribution(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
@@ -689,62 +691,136 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
 
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
             chatguru.start_put_in_queue(chat_id)
-
-        elif oferta.status in [AnalysisStatus.CPF_NAO_ENCONTRADO_NA_BASE, AnalysisStatus.NAO_ELEGIVEL, AnalysisStatus.EMPREGADOR_CPF, AnalysisStatus.CATEGORIA_CNAE_INVALIDA, AnalysisStatus.LIMITE_CONTRATOS, AnalysisStatus.IDADE_INSUFICIENTE]:
+        
+        elif oferta.status == AnalysisStatus.CPF_NAO_ENCONTRADO_NA_BASE:
             msg = oferta.raw_details.get("msg_tecnica")
-            if msg:
-                chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
             chatguru.finish_attendance(chat_id)
-            
+        
+        elif oferta.status == AnalysisStatus.NAO_ELEGIVEL:
+            msg = oferta.raw_details.get("msg_tecnica")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
+            chatguru.finish_attendance(chat_id)
+
+        elif oferta.status == AnalysisStatus.EMPREGADOR_CPF:
+            msg = oferta.raw_details.get("msg_tecnica")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
+            chatguru.finish_attendance(chat_id)
+        
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE_FACTA:
+            idade = oferta.raw_details.get("idade")
             sugestao = oferta.raw_details.get("sugestao_bancos", "Verificar outros bancos.")
-            chatguru.send_message(chat_id=chat_id, message_key="idade_insuficiente_facta", variables={"sugestao": sugestao}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            variables={"sugestao": sugestao},
+            force_internal=True)
             chatguru.start_put_in_queue(chat_id)
             chatguru.move_to_simular_outros_bancos(chat_id)
+
+        elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE:
+            idade = oferta.raw_details.get("idade")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="idade_insuficiente",
+            variables={"idade": idade},
+            force_internal=True)
+            chatguru.finish_attendance(chat_id)
 
         elif oferta.status == AnalysisStatus.SEM_MARGEM:
             msg = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg},
+            force_internal=True)
             chatguru.finish_attendance(chat_id)
 
-        elif oferta.status in [AnalysisStatus.REPROVADO_POLITICA_FACTA, AnalysisStatus.SEM_OFERTA]:
+        elif oferta.status == AnalysisStatus.CATEGORIA_CNAE_INVALIDA:
+            categoria = oferta.raw_details.get("categoria")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="categoria_invalida",
+            variables={"categoria": categoria},
+            force_internal=True)
+            chatguru.finish_attendance(chat_id)
+        
+        elif oferta.status == AnalysisStatus.REPROVADO_POLITICA_FACTA:
             msg_tecnica = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_tecnica}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
             chatguru.start_put_in_queue(chat_id)
             chatguru.move_to_simular_outros_bancos(chat_id)
-
+        
+        elif oferta.status == AnalysisStatus.LIMITE_CONTRATOS:
+            msg_tecnica = oferta.raw_details.get("msg_tecnica")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
+            chatguru.finish_attendance(chat_id)
+        
         elif oferta.status == AnalysisStatus.MENOS_SEIS_MESES:
             msg_tecnica = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_tecnica}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
             chatguru.finish_attendance(chat_id)
-
+        
         elif oferta.status == AnalysisStatus.EMPRESA_RECENTE:
             msg_tecnica = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_tecnica}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
             chatguru.finish_attendance(chat_id)
-
-        elif oferta.status == AnalysisStatus.VIRADA_FOLHA:
-            chatguru.send_message(chat_id=chat_id, message_key="clt_virada_folha", force_internal=True)
+        
+        elif oferta.status == AnalysisStatus.SEM_OFERTA:
+            msg_tecnica = oferta.raw_details.get("msg_tecnica")
+            chatguru.send_message(chat_id=chat_id,
+            message_key="blank",
+            variables={"blank": msg_tecnica},
+            force_internal=True)
             chatguru.start_put_in_queue(chat_id)
-
+            chatguru.move_to_simular_outros_bancos(chat_id)
+        
+        elif oferta.status == AnalysisStatus.VIRADA_FOLHA:
+            chatguru.send_message(chat_id=chat_id,
+            message_key="clt_virada_folha",
+            force_internal=True)
+            chatguru.start_put_in_queue(chat_id)
+        
         elif oferta.status == AnalysisStatus.ERRO_TECNICO:
             chatguru.start_put_in_queue(chat_id)
-    
+        
     except MaxRetriesExceededError:
         logger.info(f"⏰ [Worker ChatGuru] Timeout: Limite de tentativas excedido para {cpf}")
         try:
-            chatguru = ChatGuruService()
             chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "Limite de tentativas de processamento excedido."}, force_internal=True)
             chatguru.send_message(chat_id=chat_id, message_key="clt_limite_tentativas")
         except Exception: pass
-        ChatGuruService().start_put_in_queue(chat_id)
+        chatguru.start_put_in_queue(chat_id)
 
     except Exception as e:
         if isinstance(e, Retry): raise e
         logger.error(f"💥 [Worker ChatGuru] Erro crítico: {e}", exc_info=True)
         try:
-            chatguru = ChatGuruService()
             chatguru.send_message(chat_id=chat_id, message_key="retorno_desconhecido", variables={"erro": _safe_error_string(e)}, force_internal=True)
-        except Exception: pass
-        try: ChatGuruService().start_put_in_queue(chat_id)
-        except Exception: pass
+        except Exception as send_error: logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o ChatGuru: {send_error}")
+        try: chatguru.start_put_in_queue(chat_id)
+        except Exception as final_error: logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+    
+    finally:
+        try:
+            facta_http_client.close()
+            chatguru.close()
+            logger.info(f"🧹 [Worker ChatGuru] Conexões HTTP encerradas com sucesso (Chat {chat_id}).")
+        except Exception as e:
+            logger.error(f"⚠️ [Worker ChatGuru] Falha não-crítica ao fechar conexões: {e}")

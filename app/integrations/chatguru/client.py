@@ -12,10 +12,16 @@ class ChatGuruClient:
         self.account_id = os.getenv("CHATGURU_ACCOUNT_ID")
         self.phone_id = os.getenv("CHATGURU_PHONE_ID")
 
+        self.http_client = self._get_http_client()
+
     def _get_http_client(self):
         """Reutiliza o nosso RetryTransport para blindar o ChatGuru contra erros 502/504"""
         transport = RetryTransport(max_retries=3, backoff_factor=1.0, retry_status_codes=[500, 502, 503, 504])
         return httpx.Client(timeout=30.0, transport=transport)
+    
+    def close(self):
+        """Permite fechar o pool de conexões ao fim do uso"""
+        self.http_client.close()
     
     def _request(self, action: str, chat_number: str, extra_data: dict = None):
         """Método base para fazer chamadas POST no formato x-www-form-urlencoded"""
@@ -32,17 +38,16 @@ class ChatGuruClient:
         payload.update(extra_data)
 
         try:
-            with self._get_http_client() as client:
-                response = client.post(self.api_url, data=payload)
+            response = self.http_client.post(self.api_url, data=payload)
 
-                if response.status_code >= 400:
-                    logger.error(f"❌ [ChatGuru API] Detalhes do erro: {response.text}")
+            if response.status_code >= 400:
+                logger.error(f"❌ [ChatGuru API] Detalhes do erro: {response.text}")
 
-                response.raise_for_status()
+            response.raise_for_status()
 
-                resp_data = response.json()
-                logger.debug(f"📥 [ChatGuru API Response]: {resp_data}")
-                return resp_data
+            resp_data = response.json()
+            logger.debug(f"📥 [ChatGuru API Response]: {resp_data}")
+            return resp_data
             
         except Exception as e:
             logger.error(f"❌ [ChatGuru API] Erro na Action '{action}': {e}")
