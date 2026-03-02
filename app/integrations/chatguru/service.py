@@ -61,11 +61,6 @@ class ChatGuruService:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_FILA)
         return False
 
-    def start_flow_wait_term2(self, chat_number: str):
-        logger.info(f"⏳ [ChatGuru API] Adicionando tag 'Aguardando Termo' ao Chat {chat_number}.")
-    
-    def start_flow_digitacao_clt(self, chat_number: str):
-        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Digitação CLT para o Chat {chat_number}")
 
     def start_auto_distribution(self, chat_number: str):
         """
@@ -76,12 +71,6 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_DISTRIBUICAO)
         
-    def move_to_simular_outros_bancos(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para simulação em outros bancos.")
-    
-    def move_to_aprovado(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para funil de aprovação.")
-
     def finish_attendance(self, chat_number: str):
         """
         Finaliza o atendimento no ChatGuru chamando o diálogo de encerramento.
@@ -92,6 +81,36 @@ class ChatGuruService:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_ENCERRAMENTO)
         return False
     
-    def close(self):
-        """Repassa o comando de fechamento para o client interno"""
-        self.client.close()
+    # MOCKS
+    def start_flow_wait_term2(self, chat_number: str):
+        logger.info(f"⏳ [ChatGuru API] Adicionando tag 'Aguardando Termo' ao Chat {chat_number}.")
+    
+    def start_flow_digitacao_clt(self, chat_number: str):
+        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Digitação CLT para o Chat {chat_number}")
+
+    def start_flow_digitacao_fgts(self, chat_number: str):
+        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Digitação FGTS para o Chat {chat_number}")
+
+    def move_to_simular_outros_bancos(self, chat_number: str):
+        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para simulação em outros bancos.")
+    
+    def move_to_aprovado(self, chat_number: str):
+        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para funil de aprovação.")
+
+    def move_to_digitacao(self, chat_number: str):
+        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para funil de digitação.")
+
+    def transfer_maria_luiza(self, chat_number: str):
+        logger.info(f"🏦 [ChatGuru API] Adicionando Maria Luiza no chat {chat_number} para suporte.")
+    
+    def start_flow_authorization(self, chat_number: str):
+        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Sem autorização FGTS para o Chat {chat_number}")
+    
+    def start_flow_sem_adesao(self, chat_number: str):
+        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Sem adesão FGTS para o Chat {chat_number}")
+    
+    def start_flow_wait_term(self, chat_number: str):
+        logger.info(f"⏳ [ChatGuru API] Iniciando Fluxo de Aguardando Termo (Loop 1) para o Chat {chat_number}")
+
+    def start_flow_telefone_vinculado(self, chat_number: str):
+        logger.info(f"📵 [ChatGuru API] Iniciando Fluxo de Telefone Vinculado para o Chat {chat_number}")

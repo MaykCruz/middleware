@@ -541,6 +541,126 @@ def executar_digitacao_clt(self, chat_id: str):
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
+@celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
+def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
+    """
+    Executa a lógica de FGTS e responde via CHATGURU.
+    Agora com suporte a Retry Inteligente.
+    """
+    MAX_RETRIES = 10
+    COUNTDOWN=30
+
+    tentativa_atual = self.request.retries + 1
+    logger.info(f"⚙️ [Worker ChatGuru FGTS] Processando FGTS para CPF {cpf} (Tentativa {tentativa_atual})")
+
+    facta_http_client = create_client()
+    fgts_service = FGTSService(http_client=facta_http_client)
+    chatguru = ChatGuruService(chat_id)
+
+    try:
+        oferta = fgts_service.consultar_melhor_oportunidade(cpf, chat_id)
+
+        logger.info(f"📤 [Worker ChatGuru FGTS] Resultado: {oferta.status} | Msg: {oferta.message_key} | ChatId: {chat_id}")
+
+        if oferta.status == AnalysisStatus.PROCESSAMENTO_PENDENTE:
+            if self.request.retries == 0 or self.request.retries % 3 == 0:
+                msg_original = oferta.variables.get("blank", "Processamento pendente.")
+
+                msg_enriquecida = (
+                    f"{msg_original}\n\n"
+                    f"🔄 *Reconsulta automática:*\n"
+                    f"Reconsultando em {COUNTDOWN}s... (Tentativa {tentativa_atual}/{MAX_RETRIES})"
+                )
+
+                oferta.variables["blank"] = msg_enriquecida
+
+                chatguru.send_message(
+                    chat_id=chat_id,
+                    message_key=oferta.message_key,
+                    variables=oferta.variables,
+                    force_internal=oferta.is_internal
+                )
+            raise self.retry(countdown=COUNTDOWN, max_retries=MAX_RETRIES)
+        
+        chatguru.send_message(
+            chat_id=chat_id,
+            message_key=oferta.message_key,
+            variables=oferta.variables,
+            force_internal=oferta.is_internal
+        )
+
+        if oferta.status == AnalysisStatus.APROVADO:
+            detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
+            dados_bancarios = detalhes.get("dados_bancarios")
+
+            if isinstance(dados_bancarios, dict) and dados_bancarios:
+                logger.info(f"🎯 [Worker ChatGuru FGTS] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
+        
+                chatguru.start_flow_digitacao_fgts(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE CLT NO CHATGURU
+            
+            else:
+                logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
+                chatguru.move_to_aprovado(chat_id)
+                chatguru.start_auto_distribution(chat_id)
+        
+        elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
+            chatguru.start_flow_authorization(chat_id)
+        
+        elif oferta.status == AnalysisStatus.SEM_ADESAO:
+            chatguru.start_flow_sem_adesao(chat_id)
+        
+        elif oferta.status == AnalysisStatus.MUDANCAS_CADASTRAIS:
+            chatguru.finish_attendance(chat_id)
+        
+        elif oferta.status == AnalysisStatus.ANIVERSARIANTE:
+            chatguru.finish_attendance(chat_id)
+        
+        elif oferta.status == AnalysisStatus.SALDO_NAO_ENCONTRADO:
+            chatguru.finish_attendance(chat_id)
+
+        elif oferta.status == AnalysisStatus.SEM_SALDO:
+            chatguru.finish_attendance(chat_id)
+        
+        elif oferta.status == AnalysisStatus.LIMITE_EXCEDIDO_CONSULTAS_FGTS:
+            chatguru.start_put_in_queue(chat_id)
+        
+        elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
+            chatguru.start_put_in_queue(chat_id)
+    
+    except MaxRetriesExceededError:
+        logger.info(f"⏰ [Worker ChatGuru FGTS] Timeout: Desistindo após {MAX_RETRIES} tentativas.")
+        try:
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "Limite de tentativas de processamento excedido."},
+                force_internal=True)
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="clt_limite_tentativas"
+            )
+        except Exception:
+            pass
+        chatguru.start_put_in_queue(chat_id)
+    
+    except Exception as e:
+        if isinstance(e, Retry):
+            raise e  # Re-raise Retry exceptions to let Celery handle them
+        logger.error(f"💥 [Worker ChatGuru FGTS] Erro crítico: {e}", exc_info=True)
+        try:
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+        
+        try:
+            chatguru.start_put_in_queue(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
     """
@@ -550,7 +670,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
     COUNTDOWN = 30
 
     tentativa_atual = self.request.retries + 1
-    logger.info(f"⚙️ [Worker ChatGuru] Processando CLT para CPF {cpf} (Tentativa {tentativa_atual})")
+    logger.info(f"⚙️ [Worker ChatGuru CLT] Processando CLT para CPF {cpf} (Tentativa {tentativa_atual})")
 
     facta_http_client = create_client()
     clt_service = CLTService(http_client=facta_http_client)
@@ -559,7 +679,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
     try:
         oferta = clt_service.consultar_oportunidade(cpf, nome, celular, chat_id, enviar_link=enviar_link)
 
-        logger.info(f"📤 [Worker ChatGuru] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
+        logger.info(f"📤 [Worker ChatGuru CLT] Resultado: {oferta.status} | MsgKey: {oferta.message_key} | ChatId: {chat_id}")
 
         if oferta.status == AnalysisStatus.PROCESSAMENTO_PENDENTE:
             if self.request.retries == 0 or self.request.retries % 3 == 0:
@@ -612,7 +732,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             else:
 
                 if verificacao_manual:
-                    logger.info(f"🛑 [Worker ChatGuru] Loop interrompido. Distribuindo Chat {chat_id}.")
+                    logger.info(f"🛑 [Worker ChatGuru CLT] Loop interrompido. Distribuindo Chat {chat_id}.")
 
                     chatguru.send_message(
                         chat_id=chat_id, 
@@ -622,7 +742,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                     chatguru.start_put_in_queue(chat_id)
 
                 else:
-                    logger.info(f"⚠️ [Worker ChatGuru] Autorização pendente. Enviando para Flow de Espera (Loop 1).")
+                    logger.info(f"⚠️ [Worker ChatGuru CLT] Autorização pendente. Enviando para Flow de Espera (Loop 1).")
                     chatguru.send_message(
                         chat_id=chat_id, 
                         message_key="clt_termo_nao_identificado"
@@ -641,12 +761,12 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             dados_bancarios = detalhes.get("dados_bancarios")
 
             if isinstance(dados_bancarios, dict) and dados_bancarios:
-                logger.info(f"🎯 [Worker ChatGuru] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
+                logger.info(f"🎯 [Worker ChatGuru CLT] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
 
                 chatguru.start_flow_digitacao_clt(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE CLT NO CHATGURU
 
             else:
-                logger.info(f"⚠️ [Worker ChatGuru] Cliente {cpf} aprovado mas sem dados bancários completos.")
+                logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos.")
                 chatguru.move_to_aprovado(chat_id)
                 chatguru.start_auto_distribution(chat_id)
         
@@ -768,7 +888,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             chatguru.start_put_in_queue(chat_id)
         
     except MaxRetriesExceededError:
-        logger.info(f"⏰ [Worker ChatGuru] Timeout: Limite de tentativas excedido para {cpf}")
+        logger.info(f"⏰ [Worker ChatGuru CLT] Timeout: Limite de tentativas excedido para {cpf}")
         try:
             chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "Limite de tentativas de processamento excedido."}, force_internal=True)
             chatguru.send_message(chat_id=chat_id, message_key="clt_limite_tentativas")
@@ -777,17 +897,150 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
 
     except Exception as e:
         if isinstance(e, Retry): raise e
-        logger.error(f"💥 [Worker ChatGuru] Erro crítico: {e}", exc_info=True)
+        logger.error(f"💥 [Worker ChatGuru CLT] Erro crítico: {e}", exc_info=True)
         try:
             chatguru.send_message(chat_id=chat_id, message_key="retorno_desconhecido", variables={"erro": _safe_error_string(e)}, force_internal=True)
         except Exception as send_error: logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o ChatGuru: {send_error}")
         try: chatguru.start_put_in_queue(chat_id)
         except Exception as final_error: logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
+def executar_digitacao_fgts_chatguru(self, chat_id: str):
+    """
+    Task responsável por efetivar a proposta na Facta (Digitação).
+    Acionada quando o cliente confirma a contratação.
+    """
+    logger.info(f"✍️ [Worker ChatGuru] Iniciando Digitação FGTS para Chat {chat_id}")
+
+    facta_http_client = create_client()
+    proposal_service = ProposalService(facta_http_client)
+    chatguru = ChatGuruService(chat_id)
+
+    try:
+        chatguru.send_message(chat_id, message_key="iniciando_digitacao")
+        chatguru.move_to_digitacao(chat_id)
+
+        resultado = proposal_service.executar_digitacao_fgts(chat_id)
+
+        url_link = resultado.get("url_formalizacao")
+        codigo_af = resultado.get("codigo")
+
+        if url_link:
+            logger.info(f"✅ [Worker ChatGuru] Sucesso! AF: {codigo_af} | Link: {url_link}")
+
+            msg_interna = f"✅ Proposta Gerada!\n🆔 Código AF: {codigo_af}\n🔗 Link: {url_link}"
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_interna},
+                force_internal=True
+            )
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="link_formalizacao",
+                variables={"link": url_link}
+            )
+
+            chatguru.transfer_maria_luiza(chat_id)
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "ag formalizar"},
+                force_internal=True
+            )
+        
+        else:
+            raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
     
-    finally:
+    except Exception as e:
         try:
-            facta_http_client.close()
-            chatguru.close()
-            logger.info(f"🧹 [Worker ChatGuru] Conexões HTTP encerradas com sucesso (Chat {chat_id}).")
-        except Exception as e:
-            logger.error(f"⚠️ [Worker ChatGuru] Falha não-crítica ao fechar conexões: {e}")
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o ChatGuru: {send_error}")
+        
+        try:
+            chatguru.start_put_in_queue(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+@celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
+def executar_digitacao_clt_chatguru(self, chat_id: str):
+    """
+    Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
+    """
+    logger.info(f"✍️ [Worker ChatGuru] Iniciando Digitação CLT para Chat {chat_id}")
+
+    facta_http_client = create_client()
+    proposal_service = ProposalService(facta_http_client)
+    chatguru = ChatGuruService(chat_id)
+
+    try:
+        chatguru.send_message(chat_id, message_key="iniciando_digitacao")
+        chatguru.move_to_digitacao(chat_id)
+
+        resultado = proposal_service.executar_digitacao_clt(chat_id)
+
+        url_link = resultado.get("url_formalizacao")
+        codigo_af = resultado.get("codigo")
+
+        if url_link:
+            logger.info(f"✅ [Worker ChatGuru] Sucesso CLT! AF: {codigo_af} | Link: {url_link}")
+
+            msg_interna = f"✅ Proposta CLT Gerada!\n🆔 Código AF: {codigo_af}\n🔗 Link: {url_link}"
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_interna},
+                force_internal=True
+            )
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="link_formalizacao",
+                variables={"link": url_link}
+            )
+
+            chatguru.transfer_maria_luiza(chat_id)
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "ag formalizar"},
+                force_internal=True
+            )
+
+        else:
+            raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
+    
+    except FactaContratoAndamentoError:
+        logger.warning(f"⚠️ [Worker ChatGuru] Digitação bloqueada: Contrato já existente para Chat {chat_id}")
+
+        chatguru.send_message(
+            chat_id=chat_id,
+            message_key="clt_contrato_andamento"
+        )
+
+        chatguru.finish_attendance(chat_id)
+    
+    except Exception as e:
+        try:
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="retorno_desconhecido",
+                variables={"erro": _safe_error_string(e)},
+                force_internal=True)
+        except Exception as send_error:
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o ChatGuru: {send_error}")
+        
+        try:
+            chatguru.start_put_in_queue(chat_id)
+        except Exception as final_error:
+            logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")

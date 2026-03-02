@@ -5,6 +5,17 @@ from app.utils.retry_transport import RetryTransport
 
 logger = logging.getLogger(__name__)
 
+_global_chatguru_client = None
+
+def get_chatguru_client():
+    """Singleton do Client HTTP ChatGuru."""
+    global _global_chatguru_client
+    if _global_chatguru_client is None or _global_chatguru_client.is_closed:
+        transport = RetryTransport(max_retries=3, backoff_factor=1.0, retry_status_codes=[500, 502, 503, 504])
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=10.0)
+        _global_chatguru_client = httpx.Client(timeout=30.0, transport=transport, limits=limits)
+    return _global_chatguru_client
+
 class ChatGuruClient:
     def __init__(self):
         self.api_url = os.getenv("CHATGURU_API_URL")
@@ -12,16 +23,7 @@ class ChatGuruClient:
         self.account_id = os.getenv("CHATGURU_ACCOUNT_ID")
         self.phone_id = os.getenv("CHATGURU_PHONE_ID")
 
-        self.http_client = self._get_http_client()
-
-    def _get_http_client(self):
-        """Reutiliza o nosso RetryTransport para blindar o ChatGuru contra erros 502/504"""
-        transport = RetryTransport(max_retries=3, backoff_factor=1.0, retry_status_codes=[500, 502, 503, 504])
-        return httpx.Client(timeout=30.0, transport=transport)
-    
-    def close(self):
-        """Permite fechar o pool de conexões ao fim do uso"""
-        self.http_client.close()
+        self.http_client = get_chatguru_client()
     
     def _request(self, action: str, chat_number: str, extra_data: dict = None):
         """Método base para fazer chamadas POST no formato x-www-form-urlencoded"""
