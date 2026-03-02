@@ -9,6 +9,21 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
+_global_newcorban_client = None
+
+def get_newcorban_client():
+    """Singleton do Cliente HTTP NewCorban."""
+    global _global_newcorban_client
+    if _global_newcorban_client is None or _global_newcorban_client.is_closed:
+        transport = RetryTransport(
+            max_retries=3,
+            backoff_factor=1.5,
+            retry_status_codes=[429, 500, 502, 503, 504]
+        )
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=10.0)
+        _global_newcorban_client = httpx.Client(timeout=30.0, transport=transport, limits=limits)
+    return _global_newcorban_client
+
 class NewCorbanClient:
     """
     Responsável exclusivamente pela comunicação HTTP com a API NewCorban.
@@ -40,20 +55,7 @@ class NewCorbanClient:
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
         }
 
-        self.http_client = self._create_client()
-    
-    def _create_client(self) -> httpx.Client:
-        """Cria o cliente HTTP com proteção de retries automáticos"""
-        transport = RetryTransport(
-            max_retries=3,
-            backoff_factor=1.5,
-            retry_status_codes=[429, 500, 502, 503, 504]
-        )
-        return httpx.Client(timeout=30.0, transport=transport)
-    
-    def close(self):
-        """Fecha a conexão HTTP quando a Task terminar"""
-        self.http_client.close()
+        self.http_client = get_newcorban_client()
     
     def get_bank_account_history(self, cpf: str) -> Optional[List[Dict[str, Any]]]:
         """

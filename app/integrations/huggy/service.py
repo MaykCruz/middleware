@@ -268,7 +268,3 @@ class HuggyService:
         except ValueError:
             logger.error(f"❌ ID do Agent inválido no .env: {agent_id}")
             return False
-    
-    def close(self):
-        """Repassa o comando de fechamento para o client interno."""
-        self.client.close()

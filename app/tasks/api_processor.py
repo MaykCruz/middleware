@@ -136,14 +136,7 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
             huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
-
-    finally:
-        try:
-            facta_http_client.close()
-            huggy.close()
-            logger.info(f"🧹 [Worker FGTS] Conexões HTTP encerradas com sucesso (Chat {chat_id}).")
-        except Exception as e:
-            logger.error(f"⚠️ [Worker FGTS] Falha não-crítica ao fechar conexões: {e}")    
+   
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
@@ -407,14 +400,6 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
-    finally:
-        try:
-            facta_http_client.close()
-            huggy.close()
-            logger.info(f"🧹 [Worker] Conexões HTTP (Facta e Huggy) encerradas com sucesso (Chat {chat_id}).")
-        except Exception as e:
-            logger.error(f"⚠️ [Worker] Falha não-crítica ao tentar fechar as conexões: {e}")
-
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_fgts(self, chat_id: str):
     """
@@ -480,15 +465,6 @@ def executar_digitacao_fgts(self, chat_id: str):
             huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
-
-    finally:
-        try:
-            facta_http_client.close()
-            proposal_service.close()
-            huggy.close()
-            logger.info(f"🧹 [Worker] Conexões HTTP de Digitação encerradas (Chat {chat_id}).")
-        except Exception as e:
-            logger.error(f"⚠️ [Worker] Falha ao tentar fechar as conexões: {e}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_digitacao_clt(self, chat_id: str):
@@ -564,15 +540,6 @@ def executar_digitacao_clt(self, chat_id: str):
             huggy.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
-
-    finally:
-        try:
-            facta_http_client.close()
-            proposal_service.close()
-            huggy.close()
-            logger.info(f"🧹 [Worker] Conexões HTTP de Digitação CLT encerradas (Chat {chat_id}).")
-        except Exception as e:
-            logger.error(f"⚠️ [Worker] Falha ao tentar fechar as conexões: {e}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
