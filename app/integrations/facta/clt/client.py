@@ -26,7 +26,7 @@ class FactaCLTAdapter:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
     
-    def solicitar_termo(self, cpf: str, nome: str, celular: str) -> dict:
+    def solicitar_termo(self, cpf: str, nome: str, celular: str, tipo_envio: str = "WHATSAPP") -> dict:
         """
         Envia o termo de autorização via WhatsApp (Facta)
         OBS: A API da Facta NÃO aceita DDI (55), apenas DDD + Número.
@@ -43,7 +43,7 @@ class FactaCLTAdapter:
             "nome": nome,
             "cpf": cpf,
             "celular": celular_api,
-            "tipo_envio": "WHATSAPP"
+            "tipo_envio": tipo_envio.upper()
         }
 
         try:

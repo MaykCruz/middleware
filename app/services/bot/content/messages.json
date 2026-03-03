@@ -153,7 +153,7 @@
         "text": "Limite mensal de consultas FGTS excedido!\n\nO robô transferiu para atendimento humano."
     },
     "clt_termo_enviado": {
-        "text": "Prontinho! Acabei de solicitar o envio do link oficial do *Banco Facta* para o seu WhatsApp. 📱\n\nPara que eu consiga consultar sua margem e verificar o valor disponível:\n\n1. Abra a mensagem da Facta que vai chegar;\n2. Clique no link e aceite a autorização;\n3. Volte aqui e clique no botão abaixo. 👇",
+        "text": "Prontinho! Acabei de solicitar o envio do link oficial do *Banco Facta* para o seu WhatsApp e também via SMS. 📱\n\nPara que eu consiga consultar sua margem e verificar o valor disponível:\n\n1. Abra a mensagem da Facta que vai chegar;\n2. Clique no link e aceite a autorização;\n3. Volte aqui e clique no botão abaixo. 👇",
         "options": [
             {
                 "id": "9",
