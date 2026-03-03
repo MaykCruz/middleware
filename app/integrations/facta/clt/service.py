@@ -437,7 +437,7 @@ class FactaCLTService:
             grupo_analise,
             key=lambda t: (
                 not (int(t.get("prazo")) == 18 and float(t.get("taxa", 0)) == 5.99),
-                str(t.get("codigoTabela")) == "114300",
+                str(t.get("codigoTabela")) == "114389",
                 t.get("valor_seguro", 0) > 0, 
                 float(t.get("valor_liquido", 0))
             ),
