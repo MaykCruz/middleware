@@ -64,3 +64,30 @@ class ChatGuruClient:
     def execute_dialog(self, chat_number: str, dialog_id: str):
         """Usa um 'Dialogo' do ChatGuru para transferir fila, mover de etapa, etc."""
         return self._request("dialog_execute", chat_number, {"dialog_id": dialog_id})
+    
+    def update_context(self, chat_number: str, contexts: dict):
+        """
+        Atualiza uma única variável de contexto (campo customizado) no ChatGuru.
+        O Python adiciona o prefixo 'var__' automaticamente.
+
+        Exemplo (1 item): 
+            update_context(chat, {"URA": "vendas"})
+        Exemplo (Vários itens): 
+            update_context(chat, {"valor_aprovado": "1500", "parcela": "50"})
+        """
+        extra_data = {f"var__{key}": str(value) for key, value in contexts.items()}
+        return self._request("chat_update_context", chat_number, extra_data)
+    
+    def update_custom_fields(self, chat_number: str, fields: dict):
+        """
+        Atualiza um ou múltiplos campos personalizados (CRM) no ChatGuru simultaneamente.
+        O Python adiciona o prefixo 'field__' automaticamente para cada chave.
+        
+        Exemplo (1 item): 
+            update_custom_fields(chat, {"cpf": "123.456.789-00"})
+        Exemplo (Vários itens): 
+            update_custom_fields(chat, {"valor_liberado": "1500", "parcela": "50"})
+        """
+        extra_data = {f"field__{key}": str(value) for key, value in fields.items()}
+        
+        return self._request("chat_update_custom_fields", chat_number, extra_data)

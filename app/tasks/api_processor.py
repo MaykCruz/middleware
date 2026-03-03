@@ -10,6 +10,7 @@ from app.integrations.facta.proposal.client import FactaContratoAndamentoError
 from app.integrations.huggy.service import HuggyService
 from app.schemas.credit import AnalysisStatus
 from app.integrations.chatguru.service import ChatGuruService
+from app.utils.formatters import formatar_moeda
 
 logger = logging.getLogger(__name__)
 
@@ -582,12 +583,20 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
                 )
             raise self.retry(countdown=COUNTDOWN, max_retries=MAX_RETRIES)
         
-        chatguru.send_message(
-            chat_id=chat_id,
-            message_key=oferta.message_key,
-            variables=oferta.variables,
-            force_internal=oferta.is_internal
-        )
+        STATUS_SOMENTE_DIALOGO = [
+            AnalysisStatus.SALDO_NAO_ENCONTRADO,
+            AnalysisStatus.SEM_AUTORIZACAO,
+            AnalysisStatus.APROVADO
+
+        ]
+
+        if oferta.status not in STATUS_SOMENTE_DIALOGO:
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key=oferta.message_key,
+                variables=oferta.variables,
+                force_internal=oferta.is_internal
+            )
 
         if oferta.status == AnalysisStatus.APROVADO:
             detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
@@ -595,8 +604,13 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
 
             if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker ChatGuru FGTS] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
+
+                chatguru.preparar_mensagem_dialogo(
+                    message_key=oferta.message_key,
+                    variables=oferta.variables
+                )
         
-                chatguru.start_flow_digitacao_fgts(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE CLT NO CHATGURU
+                chatguru.start_flow_digitacao_fgts(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE FGTS NO CHATGURU
             
             else:
                 logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
@@ -616,7 +630,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.SALDO_NAO_ENCONTRADO:
-            chatguru.finish_attendance(chat_id)
+            chatguru.start_saldo_nao_encontrado(chat_id)
 
         elif oferta.status == AnalysisStatus.SEM_SALDO:
             chatguru.finish_attendance(chat_id)
