@@ -39,7 +39,7 @@ class FactaCLTService:
 
             logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
 
-            resp_termo = self.adapter.solicitar_termo(cpf, nome, celular)
+            resp_termo = self.solicitar_termo_multicanal(cpf, nome, celular)
             status_termo = resp_termo["status"]
 
             if status_termo == "TERMO_ENVIADO":
@@ -466,3 +466,20 @@ class FactaCLTService:
             d = datetime.strptime(data_str, "%d/%m/%Y")
             return (datetime.today() -d).days // 365
         except: return 0
+    
+    def solicitar_termo_multicanal(self, cpf: str, nome: str, celular: str) -> dict:
+        """
+        Dispara o termo de autorização nos dois canais disponíveis (Whatsapp e SMS)
+        para garantir a entrega em caso de instabilidade no broker da Facta.
+        """
+        logger.info(f"📲 [CLT Service] Disparando termo multicanal (WPP + SMS) para {cpf}")
+
+        resultado_wpp = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="WHATSAPP")
+        resultado_sms = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="SMS")
+
+        logger.info(f"📊 [CLT Service] Resultado Termo -> WPP: {resultado_wpp.get('status')} | SMS: {resultado_sms.get('status')}")
+
+        if resultado_wpp.get("status") == "ERRO_TECNICO" and resultado_sms.get("status") != "ERRO_TECNICO":
+            return resultado_sms
+            
+        return resultado_wpp
