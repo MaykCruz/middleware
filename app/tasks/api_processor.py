@@ -614,8 +614,11 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
             
             else:
                 logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
-                chatguru.move_to_aprovado(chat_id)
-                chatguru.start_auto_distribution(chat_id)
+                chatguru.preparar_mensagem_dialogo(
+                    message_key=oferta.message_key,
+                    variables=oferta.variables
+                )
+                chatguru.start_flow_com_saldo_sem_conta(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
             chatguru.start_flow_authorization(chat_id)
@@ -788,7 +791,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             pass # Substituir por lógica de aguardar termo do ChatGuru
 
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
-            pass # Substituir por fluxo do ChatGuru
+            chatguru.start_flow_telefone_vinculado(chat_id)
 
         elif oferta.status == AnalysisStatus.RETORNO_DESCONHECIDO:
             chatguru.start_put_in_queue(chat_id)
