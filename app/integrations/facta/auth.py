@@ -24,7 +24,7 @@ def create_client(timeout: float = 30.0) -> httpx.Client:
         retry_transport = RetryTransport(
             max_retries=3,
             backoff_factor=2,
-            retry_status_codes=[520, 502, 503, 504, 429]
+            retry_status_codes=[520, 502, 503, 522, 524, 504, 429]
         )
 
         limits = httpx.Limits(
