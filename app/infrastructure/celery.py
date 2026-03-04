@@ -34,8 +34,8 @@ celery_app = Celery(
 celery_app.conf.update(
     task_track_started=True,
     result_expires=3600,          # Resultados expiram após 1 hora
-    task_time_limit=120,      # Mata a task se demorar mais de 120s (evita zumbis)
-    task_soft_time_limit=110,
+    task_time_limit=180,      # Mata a task se demorar mais de 120s (evita zumbis)
+    task_soft_time_limit=160,
     worker_prefetch_multiplier=1, # Garante que tasks longas não travem tasks rápidas
     task_default_queue="main-queue",
 

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 _global_facta_client = None
 
-def create_client(timeout: float = 30.0) -> httpx.Client:
+def create_client(timeout: float = 60.0) -> httpx.Client:
     """
     Singleton do Cliente HTTP Facta.
     Garante que apenas um pool seja criado por worker do Celery
