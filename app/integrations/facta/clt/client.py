@@ -58,6 +58,9 @@ class FactaCLTAdapter:
                 "msg_original": data.get("mensagem", ""),
                 "dados": data
             }
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
         
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao solicitar termo: {e}")
@@ -92,6 +95,10 @@ class FactaCLTAdapter:
                 "dados": data.get("dados_trabalhador", {}).get("dados", []),
                 "msg_original": data.get("mensagem", "")
             }
+        
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
         
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao consultar dados trabalhador: {e}")
@@ -145,6 +152,10 @@ class FactaCLTAdapter:
                 status = "ERRO_TECNICO"
             
             return {"status": status, "dados": data, "msg_original": data.get("mensagem", "")}
+        
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
 
         except Exception as e:
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
@@ -187,6 +198,10 @@ class FactaCLTAdapter:
 
             status = "ERRO_OPERACOES" if data.get("erro") else "SUCESSO"
             return {"status": status, "dados": data, "msg_original": msg}
+        
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
 
         except Exception as e:
             logger.error(f"❌ [Facta CLT] Erro ao buscar operações: {e}")

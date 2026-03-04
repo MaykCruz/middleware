@@ -35,6 +35,11 @@ class FactaFGTSAdapter:
                 "dados": data.get("retorno", {}),
                 "msg_original": data.get("mensagem", "")
             }
+        
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
+        
         except Exception as e:
             logger.error(f"Erro Saldo: {e}")
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
@@ -73,6 +78,10 @@ class FactaFGTSAdapter:
                     "status": "REPROVADO", 
                     "msg_original": data.get("msg")
                 }
+        except httpx.TimeoutException as e:
+            logger.error(f"⏳ [Facta CLT] Timeout na API (Demorou muito para responder): {e}")
+            raise e
+        
         except Exception as e:
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
         

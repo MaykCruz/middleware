@@ -281,7 +281,7 @@ class NewCorbanService:
                         "analfabeto": False
                     },
                     "documentos": {
-                        "RG": { # Chave fixa conforme seu código, mas cuidado se usar CNH
+                        dados_facta.get("RG"): { # IGUAL o número do documento
                             "numero": dados_facta.get("RG"),
                             "tipo": "RG",
                             "data_emissao": dados_facta.get("EMISSAORG"),
@@ -289,7 +289,7 @@ class NewCorbanService:
                         }
                     },
                     "enderecos": {
-                        "PRINCIPAL": { # Usei uma chave fixa para facilitar
+                        dados_facta.get("CEP"): { # IGUAL ao cep
                             "cep": dados_facta.get("CEP"),
                             "logradouro": dados_facta.get("ENDERECO"),
                             "numero": dados_facta.get("NUMERO") or "S/N",
@@ -301,7 +301,7 @@ class NewCorbanService:
                         }
                     },
                     "telefones": {
-                        "PRINCIPAL": {
+                        telefone_sem_ddd: { # IGUAL ao telefone sem ddd
                             "ddd": ddd,
                             "numero": telefone_sem_ddd
                         }
@@ -322,7 +322,7 @@ class NewCorbanService:
                     "vendedor": self.vendedor,
                     "valor_financiado": valor_liquido, # Ajuste se precisar do Bruto aqui
                     "valor_liberado": valor_liquido,
-                    "prazo": 5, # Seu código estava fixo em 5
+                    "prazo": 5, #  fixo em 5
                     "taxa": "1.80",
                     "banco_id": self.banco_id,
                     "convenio_id": "100000",

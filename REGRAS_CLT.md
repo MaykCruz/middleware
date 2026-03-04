@@ -65,3 +65,16 @@ Fator de proteção de renda aplicado sobre a margem:
 * **Salário <= R$ 5.000:** Usa 97% da margem.
 * **Salário <= R$ 7.350:** Usa 90% da margem.
 * **Salário > R$ 7.350:** Usa 80% da margem.
+
+## 6. Ordenação e Escolha da Melhor Tabela (Filtro Facta)
+Quando a API retorna múltiplas opções de crédito aprovadas, o sistema filtra estritamente pelo prazo liberado na política e, em seguida, aplica 4 regras de prioridade absolutas para escolher a oferta campeã (do maior para o menor peso):
+
+1. **Fuga de Tabela Desvantajosa**: Rebaixa sumariamente qualquer tabela que tenha o prazo de **18 meses** atrelado a uma taxa exata de **5.99%**.
+
+2. **Tabela Favorita (Prioridade Ouro)**: Força a escolha da tabela de código `(114389) 64106 - CLT NOVO GOLD 3PMT SB`
+
+3. **Comissão Extra (Seguro)**: Dá preferência para tabelas que possuam seguro embutido (`valor_seguro > 0`).
+
+4. **Desempate a Favor do Cliente**: Em caso de tabelas que empatem nos critérios acima, o sistema escolhe a que libera o **maior valor líquido**.
+
+*Nota de Recálculo*: Se a melhor tabela escolhida ultrapassar o teto de crédito liberado pela política da Facta, o sistema recalcula buscando tabelas que não estourem o valor máximo, mas respeitando rigorosamente a mesma ordem de prioridades acima.
