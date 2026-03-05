@@ -610,7 +610,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
                     variables=oferta.variables
                 )
         
-                chatguru.start_flow_digitacao_fgts(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE FGTS NO CHATGURU
+                chatguru.start_flow_com_saldo_conta(chat_id)
             
             else:
                 logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
@@ -618,7 +618,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
                     message_key=oferta.message_key,
                     variables=oferta.variables
                 )
-                chatguru.start_flow_com_saldo_sem_conta(chat_id)
+                chatguru.start_flow_com_valor_sem_conta(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
             chatguru.start_flow_authorization(chat_id)
@@ -765,13 +765,18 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                         message_key="clt_termo_nao_identificado"
                     )
                     chatguru.start_flow_wait_term2(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE ESPERA DE TERMO NO CHATGURU
+        
+        STATUS_SOMENTE_DIALOGO = [
+            AnalysisStatus.APROVADO
+        ]
 
-        chatguru.send_message(
-            chat_id=chat_id, 
-            message_key=oferta.message_key, 
-            variables=oferta.variables, 
-            force_internal=oferta.is_internal
-        )
+        if oferta.status not in STATUS_SOMENTE_DIALOGO:
+            chatguru.send_message(
+                chat_id=chat_id, 
+                message_key=oferta.message_key, 
+                variables=oferta.variables, 
+                force_internal=oferta.is_internal
+            )
 
         if oferta.status == AnalysisStatus.APROVADO:
             detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
@@ -780,12 +785,20 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker ChatGuru CLT] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
 
-                chatguru.start_flow_digitacao_clt(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE DIGITAÇÃO DE CLT NO CHATGURU
+                chatguru.preparar_mensagem_dialogo(
+                    message_key=oferta.message_key,
+                    variables=oferta.variables
+                )
+
+                chatguru.start_flow_com_margem_conta(chat_id)
 
             else:
-                logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos.")
-                chatguru.move_to_aprovado(chat_id)
-                chatguru.start_auto_distribution(chat_id)
+                logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
+                chatguru.preparar_mensagem_dialogo(
+                    message_key=oferta.message_key,
+                    variables=oferta.variables
+                )
+                chatguru.start_flow_com_valor_sem_conta(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             pass # Substituir por lógica de aguardar termo do ChatGuru
@@ -935,7 +948,6 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str):
 
     try:
         chatguru.send_message(chat_id, message_key="iniciando_digitacao")
-        chatguru.move_to_digitacao(chat_id)
 
         resultado = proposal_service.executar_digitacao_fgts(chat_id)
 
@@ -961,13 +973,6 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str):
             )
 
             chatguru.transfer_maria_luiza(chat_id)
-
-            chatguru.send_message(
-                chat_id=chat_id,
-                message_key="blank",
-                variables={"blank": "ag formalizar"},
-                force_internal=True
-            )
         
         else:
             raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
@@ -1000,7 +1005,6 @@ def executar_digitacao_clt_chatguru(self, chat_id: str):
 
     try:
         chatguru.send_message(chat_id, message_key="iniciando_digitacao")
-        chatguru.move_to_digitacao(chat_id)
 
         resultado = proposal_service.executar_digitacao_clt(chat_id)
 
@@ -1026,13 +1030,6 @@ def executar_digitacao_clt_chatguru(self, chat_id: str):
             )
 
             chatguru.transfer_maria_luiza(chat_id)
-
-            chatguru.send_message(
-                chat_id=chat_id,
-                message_key="blank",
-                variables={"blank": "ag formalizar"},
-                force_internal=True
-            )
 
         else:
             raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")

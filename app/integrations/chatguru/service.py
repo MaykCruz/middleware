@@ -89,23 +89,23 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_SALDO_NAO_ENCONTRADO)
 
-    def start_flow_digitacao_fgts(self, chat_number: str):
+    def start_flow_com_saldo_conta(self, chat_number: str):
         """
-        Executa o diálogo de Digitação FGTS.
+        Executa o diálogo de com saldo conta.
         """
-        DIALOG_ID_DIGITACAO_FGTS = os.getenv("CHATGURU_DIALOG_DIGITACAO_FGTS")
-        logger.info(f"📵 [ChatGuru API] Digitação FGTS! Executando o diálogo no Chat {chat_number}.")
+        DIALOG_ID_COM_SALDO_CONTA = os.getenv("CHATGURU_DIALOG_COM_SALDO_CONTA")
+        logger.info(f"📵 [ChatGuru API] Com saldo conta FGTS! Executando o diálogo no Chat {chat_number}.")
         if self.chat_number:
-            return self.client.execute_dialog(self.chat_number, DIALOG_ID_DIGITACAO_FGTS)
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_SALDO_CONTA)
     
-    def start_flow_com_saldo_sem_conta(self, chat_number: str):
+    def start_flow_com_valor_sem_conta(self, chat_number: str):
         """
-        Executa o diálogo de com saldo sem conta.
+        Executa o diálogo de com valor sem conta.
         """
-        DIALOG_ID_COM_SALDO_SEM_CONTA = os.getenv("CHATGURU_DIALOG_COM_SALDO_SEM_CONTA")
-        logger.info(f"📵 [ChatGuru API] Com saldo sem conta FGTS! Executando o diálogo no Chat {chat_number}.")
+        DIALOG_ID_COM_VALOR_SEM_CONTA = os.getenv("CHATGURU_DIALOG_COM_VALOR_SEM_CONTA")
+        logger.info(f"📵 [ChatGuru API] Com valor sem conta! Executando o diálogo no Chat {chat_number}.")
         if self.chat_number:
-            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_SALDO_SEM_CONTA)
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_VALOR_SEM_CONTA)
     
     def start_flow_authorization(self, chat_number: str):
         """
@@ -165,25 +165,33 @@ class ChatGuruService:
             "Mensagem_Bot": texto
         })
     
+    def transfer_maria_luiza(self, chat_number: str):
+        """
+        Adiciona a Maria no Chat para cuidar da formalização
+        """
+        DIALOG_ID_TRANSFERIR_MARIA_LUIZA = os.getenv("CHATGURU_DIALOG_TRANSFERIR_MARIA_LUIZA")
+        logger.info(f"🏦 [ChatGuru API] Adicionando Maria Luiza no chat {chat_number} para suporte.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TRANSFERIR_MARIA_LUIZA)
+    
+    def start_flow_com_margem_conta(self, chat_number: str):
+        """
+        Executa o diálogo de com margem conta.
+        """
+        DIALOG_ID_COM_MARGEM_CONTA = os.getenv("CHATGURU_DIALOG_COM_MARGEM_CONTA")
+        logger.info(f"📵 [ChatGuru API] Com saldo conta CLT! Executando o diálogo no Chat {chat_number}.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_MARGEM_CONTA)
+    
+        
     # MOCKS
     def start_flow_wait_term2(self, chat_number: str):
         logger.info(f"⏳ [ChatGuru API] Adicionando tag 'Aguardando Termo' ao Chat {chat_number}.")
     
-    def start_flow_digitacao_clt(self, chat_number: str):
-        logger.info(f"📝 [ChatGuru API] Iniciando Fluxo de Digitação CLT para o Chat {chat_number}")
+    
 
     def start_flow_wait_term(self, chat_number: str):
         logger.info(f"⏳ [ChatGuru API] Iniciando Fluxo de Aguardando Termo (Loop 1) para o Chat {chat_number}")
 
-
     def move_to_simular_outros_bancos(self, chat_number: str):
         logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para simulação em outros bancos.")
-    
-    def move_to_aprovado(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para funil de aprovação.")
-
-    def move_to_digitacao(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para funil de digitação.")
-
-    def transfer_maria_luiza(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Adicionando Maria Luiza no chat {chat_number} para suporte.")
