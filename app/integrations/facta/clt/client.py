@@ -51,6 +51,10 @@ class FactaCLTAdapter:
             resp = self.http_client.post(url, headers=headers, data=data)
             data = resp.json()
 
+            if not isinstance(data, dict):
+                logger.error(f"⚠️ [Facta CLT] Resposta inesperada (não é dicionário): {data}")
+                return {"status": "ERRO_TECNICO", "msg_original": "Resposta inválida do servidor."}
+
             status = self._interpretar_retorno_termo(data)
 
             return {
