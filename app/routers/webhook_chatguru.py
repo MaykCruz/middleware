@@ -1,7 +1,7 @@
 import logging
-from fastapi import APIRouter, Header, Request
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from fastapi import APIRouter
+from pydantic import BaseModel
+from typing import Optional
 
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
@@ -35,7 +35,8 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
     Recebe todos os eventos do ChatGuru e roteia para a ação correta com base no 'bot_context.Contexto'.
     """
     contexto_atual = payload.bot_context.Contexto
-    chat_id = payload.chat_id
+
+    chat_id = payload.celular
 
     if not contexto_atual:
         logger.info(f"📥 [ChatGuru] Webhook recebido (Chat {chat_id}), mas ignorado (Sem contexto).")

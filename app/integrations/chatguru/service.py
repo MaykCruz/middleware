@@ -12,12 +12,8 @@ class ChatGuruService:
         self.client = ChatGuruClient()
         self.session = SessionManager()
         self.chat_id = chat_id
-
-        contexto = self.session.get_context(chat_id)
-        self.chat_number = contexto.get("celular") if contexto else None
-
-        if not self.chat_number:
-            logger.error(f"❌ [ChatGuruService] Falha crítica: Celular não encontrado no Redis para {chat_id}")
+        self.chat_number = chat_id
+        
 
     def send_message(self, chat_id: str, message_key: str, variables: Optional[Dict[str, Any]] = None, force_internal: bool = False):
         """Envia mensagem para o cliente OU adiciona nota interna"""
