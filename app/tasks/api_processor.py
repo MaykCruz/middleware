@@ -767,7 +767,8 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                     chatguru.start_flow_wait_term2(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE ESPERA DE TERMO NO CHATGURU
         
         STATUS_SOMENTE_DIALOGO = [
-            AnalysisStatus.APROVADO
+            AnalysisStatus.APROVADO,
+            AnalysisStatus.AGUARDANDO_AUTORIZACAO
         ]
 
         if oferta.status not in STATUS_SOMENTE_DIALOGO:
@@ -801,7 +802,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                 chatguru.start_flow_com_valor_sem_conta(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
-            pass # Substituir por lógica de aguardar termo do ChatGuru
+            chatguru.start_flow_wait_term(chat_id)
 
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
             chatguru.start_flow_telefone_vinculado(chat_id)

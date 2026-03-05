@@ -183,15 +183,25 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_MARGEM_CONTA)
     
+    def move_to_simular_outros_bancos(self, chat_number: str):
+        """
+        Executa o diálogo de mover para o funil simular outros bancos.
+        """
+        DIALOG_ID_FUNIL_SIMULAR_OUTROS_BANCOS = os.getenv("CHATGURU_DIALOG_FUNIL_SIMULAR_OUTROS_BANCOS")
+        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para simulação em outros bancos.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_FUNIL_SIMULAR_OUTROS_BANCOS)
         
     # MOCKS
     def start_flow_wait_term2(self, chat_number: str):
-        logger.info(f"⏳ [ChatGuru API] Adicionando tag 'Aguardando Termo' ao Chat {chat_number}.")
+        pass
     
-    
-
     def start_flow_wait_term(self, chat_number: str):
+        """
+        Executa o diálogo que envia a mensagem do termo clt
+        """
+        DIALOG_ID_AGUARDANDO_TERMO = os.getenv("CHATGURU_DIALOG_AGUARDANDO_TERMO")
         logger.info(f"⏳ [ChatGuru API] Iniciando Fluxo de Aguardando Termo (Loop 1) para o Chat {chat_number}")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_AGUARDANDO_TERMO)
 
-    def move_to_simular_outros_bancos(self, chat_number: str):
-        logger.info(f"🏦 [ChatGuru API] Movendo Chat {chat_number} para simulação em outros bancos.")
