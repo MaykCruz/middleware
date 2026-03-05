@@ -28,8 +28,8 @@ def create_client(timeout: float = 60.0) -> httpx.Client:
         )
 
         limits = httpx.Limits(
-            max_keepalive_connections=20,
-            max_connections=50,
+            max_keepalive_connections=50,
+            max_connections=100,
             keepalive_expiry=10.0
         )
 
