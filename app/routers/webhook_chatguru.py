@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
-
+from app.integrations.chatguru.service import ChatGuruService
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
 from app.utils.formatters import limpar_nome
@@ -44,6 +44,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
     logger.info(f"📥 [ChatGuru] Webhook recebido! ChatID: {chat_id} | Contexto: {contexto_atual}")
     session = SessionManager()
+    chatguru = ChatGuruService(chat_id)
 
     if contexto_atual == "aguardando_simulacao_clt":
         cpf_limpo = clean_digits(payload.texto_mensagem)
@@ -52,6 +53,10 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
         if not validate_cpf(cpf_limpo) or not telefone_formatado:
             logger.warning(f"🚫 [ChatGuru] Dados Inválidos: CPF {cpf_limpo} ou Tel {payload.celular}")
+            msg_interna = f"🚫 [Erro de Validação] Cliente tentou iniciar simulação CLT com dados inválidos.\nCPF: {payload.texto_mensagem}\nTel: {payload.celular}"
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Alguns dados informados parecem incorretos. Vou transferir você para um de nossos especialistas ajudar, ok?"})
+            chatguru.start_put_in_queue(chat_id)
             return {"status": "recebido", "msg": "Dados inválidos"}
         
         logger.info(f"🚀 [ChatGuru] Disparando Task: Simulação CLT para {cpf_limpo}")
@@ -82,6 +87,10 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
         if not validate_cpf(cpf_limpo) or not telefone_formatado:
             logger.warning(f"🚫 [ChatGuru] Dados Inválidos no FGTS: CPF {cpf_limpo} ou Tel {payload.celular}")
+            msg_interna = f"🚫 [Erro de Validação] Cliente tentou iniciar simulação FGTS com dados inválidos.\nCPF: {payload.texto_mensagem}\nTel: {payload.celular}"
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Ocorreu um erro na leitura dos seus dados. Vou chamar um consultor para continuarmos o atendimento!"})
+            chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Dados inválidos"}
         
         logger.info(f"🚀 [ChatGuru] Disparando Task: Simulação FGTS para {cpf_limpo}")
@@ -129,6 +138,9 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         contexto_salvo = session.get_context(chat_id)
         if not contexto_salvo or not contexto_salvo.get("cpf"):
             logger.error(f"❌ [ChatGuru] Sessão perdida para o Chat {chat_id}")
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "❌ [Sessão Expirada] Cliente clicou para verificar autorização, mas o contexto no Redis expirou ou foi perdido."}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Puxa, parece que demoramos um pouquinho e nossa sessão expirou. Um consultor humano vai dar continuidade no seu atendimento de onde paramos!"})
+            chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Sessão expirada"}
         
         cpf = contexto_salvo.get("cpf")
@@ -154,6 +166,9 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
         contexto_salvo = session.get_context(chat_id)
         if not contexto_salvo or not contexto_salvo.get("cpf"):
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "❌ [Sessão Expirada] Cliente tentou informar um novo telefone, mas o contexto no Redis expirou."}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Ops, nossa sessão expirou. Vou te passar para um consultor finalizar isso para você!"})
+            chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Sessão expirada"}
         
         cpf = contexto_salvo.get("cpf")
@@ -163,6 +178,10 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         novo_telefone = formatar_telefone_br(payload.texto_mensagem)
 
         if not novo_telefone:
+            msg_interna = f"🚫 [Telefone Inválido] O cliente enviou um telefone inválido no fluxo de correção:\nDigitou: {payload.texto_mensagem}"
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ O formato do telefone não foi reconhecido pelo nosso sistema. Vou chamar um especialista humano para te ajudar com isso."})
+            chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Telefone inválido"}
         
         contexto_salvo["celular"] = novo_telefone
