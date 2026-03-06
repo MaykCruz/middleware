@@ -123,6 +123,10 @@ def executar_fluxo_fgts(self, chat_id: str, cpf: str, nome: str = None, celular:
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
+        
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
+
         logger.error(f"💥 [Worker FGTS] Erro crítico: {e}", exc_info=True)
         try:
             huggy.send_message(
@@ -249,7 +253,6 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             huggy.start_flow_wait_term(chat_id)
-        
         
         elif oferta.status == AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF:
             huggy.start_flow_telefone_vinculado(chat_id)
@@ -385,6 +388,9 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
+
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
         
         logger.error(f"💥 [Worker CLT] Erro crítico: {e}", exc_info=True)
         try:
@@ -453,6 +459,8 @@ def executar_digitacao_fgts(self, chat_id: str):
             raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
     
     except Exception as e:
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
         try:
             huggy.send_message(
                 chat_id=chat_id,
@@ -528,6 +536,8 @@ def executar_digitacao_clt(self, chat_id: str):
         huggy.finish_attendance(chat_id, tabulation_id=huggy.tabulations.get("CONTRATO_ANDAMENTO"))
     
     except Exception as e:
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
         try:
             huggy.send_message(
                 chat_id=chat_id,
