@@ -774,7 +774,8 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                         chat_id=chat_id, 
                         message_key="clt_termo_nao_identificado"
                     )
-                    chatguru.start_flow_wait_term2(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE ESPERA DE TERMO NO CHATGURU
+                    #chatguru.start_flow_wait_term2(chat_id) # GENÉRICO - NECESSÁRIO CRIAR FLUXO DE ESPERA DE TERMO NO CHATGURU
+                    chatguru.start_put_in_queue(chat_id)
         
         STATUS_SOMENTE_DIALOGO = [
             AnalysisStatus.APROVADO,
