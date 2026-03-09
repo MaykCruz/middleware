@@ -631,21 +631,27 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
                 chatguru.start_flow_com_valor_sem_conta(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
+            chatguru.tag_sem_autorizacao(chat_id)
             chatguru.start_flow_authorization(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_ADESAO:
+            chatguru.tag_sem_adesao(chat_id)
             chatguru.start_flow_sem_adesao(chat_id)
         
         elif oferta.status == AnalysisStatus.MUDANCAS_CADASTRAIS:
+            chatguru.tag_mudancas_cadastrais(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.ANIVERSARIANTE:
+            chatguru.tag_aniversariante(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.SALDO_NAO_ENCONTRADO:
+            chatguru.tag_saldo_nao_encontrado(chat_id)
             chatguru.start_saldo_nao_encontrado(chat_id)
 
         elif oferta.status == AnalysisStatus.SEM_SALDO:
+            chatguru.tag_sem_saldo(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.LIMITE_EXCEDIDO_CONSULTAS_FGTS:
@@ -827,6 +833,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.NAO_ELEGIVEL:
@@ -835,6 +842,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
 
         elif oferta.status == AnalysisStatus.EMPREGADOR_CPF:
@@ -843,6 +851,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE_FACTA:
@@ -860,6 +869,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="idade_insuficiente",
             variables={"idade": idade},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
 
         elif oferta.status == AnalysisStatus.SEM_MARGEM:
@@ -868,6 +878,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg},
             force_internal=True)
+            chatguru.tag_sem_margem(chat_id)
             chatguru.finish_attendance(chat_id)
 
         elif oferta.status == AnalysisStatus.CATEGORIA_CNAE_INVALIDA:
@@ -876,6 +887,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="categoria_invalida",
             variables={"categoria": categoria},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.REPROVADO_POLITICA_FACTA:
@@ -893,6 +905,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
+            chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.MENOS_SEIS_MESES:
@@ -901,6 +914,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
+            chatguru.tag_tempo_registro(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.EMPRESA_RECENTE:
@@ -909,6 +923,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
+            chatguru.tag_celestista_restricao(chat_id)
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_OFERTA:
@@ -1053,6 +1068,7 @@ def executar_digitacao_clt_chatguru(self, chat_id: str):
             chat_id=chat_id,
             message_key="clt_contrato_andamento"
         )
+        chatguru.tag_contrato_andamento(chat_id)
 
         chatguru.finish_attendance(chat_id)
     

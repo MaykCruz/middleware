@@ -188,10 +188,6 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_FUNIL_SIMULAR_OUTROS_BANCOS)
         
-    # MOCKS
-    def start_flow_wait_term2(self, chat_number: str):
-        pass
-    
     def start_flow_wait_term(self, chat_number: str):
         """
         Executa o diálogo que envia a mensagem do termo clt
@@ -200,4 +196,62 @@ class ChatGuruService:
         logger.info(f"⏳ [ChatGuru API] Iniciando Fluxo de Aguardando Termo (Loop 1) para o Chat {chat_number}")
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_AGUARDANDO_TERMO)
+    
+    def tag_recusa_definitiva(self, chat_number: str):
+        DIALOG_ID_TAG_RECUSA_DEFINITIVA = os.getenv("CHATGURU_DIALOG_ID_TAG_RECUSA_DEFINITIVA")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_RECUSA_DEFINITIVA)
+    
+    def tag_sem_margem(self, chat_number: str):
+        DIALOG_ID_TAG_SEM_MARGEM = os.getenv("CHATGURU_DIALOG_ID_TAG_SEM_MARGEM")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SEM_MARGEM)
+    
+    def tag_celestista_restricao(self, chat_number: str):
+        DIALOG_ID_TAG_CELETISTA_RESTRICAO = os.getenv("CHATGURU_DIALOG_ID_TAG_CELETISTA_RESTRICAO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_CELETISTA_RESTRICAO)
+    
+    def tag_tempo_registro(self, chat_number: str):
+        DIALOG_ID_TAG_TEMPO_REGISTRO = os.getenv("CHATGURU_DIALOG_ID_TAG_TEMPO_REGISTRO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_TEMPO_REGISTRO)
+    
+    def tag_saldo_nao_encontrado(self, chat_number: str):
+        DIALOG_ID_TAG_SALDO_NAO_ENCONTRADO = os.getenv("CHATGURU_DIALOG_ID_TAG_SALDO_NAO_ENCONTRADO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SALDO_NAO_ENCONTRADO)
+    
+    def tag_aniversariante(self, chat_number: str):
+        DIALOG_ID_TAG_ANIVERSARIANTE = os.getenv("CHATGURU_DIALOG_ID_TAG_ANIVERSARIANTE")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_ANIVERSARIANTE)
+    
+    def tag_mudancas_cadastrais(self, chat_number: str):
+        DIALOG_ID_TAG_MUDANCAS_CADASTRAIS = os.getenv("CHATGURU_DIALOG_ID_TAG_MUDANCAS_CADASTRAIS")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_MUDANCAS_CADASTRAIS)
+    
+    def tag_contrato_andamento(self, chat_number: str):
+        DIALOG_ID_TAG_CONTRATO_ANDAMENTO = os.getenv("CHATGURU_DIALOG_ID_TAG_CONTRATO_ANDAMENTO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_CONTRATO_ANDAMENTO)
+    
+    def tag_sem_adesao(self, chat_number: str):
+        DIALOG_ID_TAG_SEM_ADESAO = os.getenv("CHATGURU_DIALOG_ID_TAG_SEM_ADESAO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SEM_ADESAO)
+        
+    def tag_sem_autorizacao(self, chat_number: str):
+        DIALOG_ID_TAG_SEM_AUTORIZACAO = os.getenv("CHATGURU_DIALOG_ID_TAG_SEM_AUTORIZACAO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SEM_AUTORIZACAO)
+    
+    def tag_sem_saldo(self, chat_number: str):
+        DIALOG_ID_TAG_SEM_SALDO = os.getenv("CHATGURU_DIALOG_ID_TAG_SEM_SALDO")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SEM_SALDO)
 
+    # MOCKS
+    def start_flow_wait_term2(self, chat_number: str):
+        pass
