@@ -156,6 +156,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 "celular": celular,
                 "nome": nome,
                 "contact_id": contact_id,
+                "enviar_link": False,
                 "verificacao_manual": True
             }
         )
