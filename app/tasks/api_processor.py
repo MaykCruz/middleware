@@ -858,6 +858,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             idade = oferta.raw_details.get("idade")
             sugestao = oferta.raw_details.get("sugestao_bancos", "Verificar outros bancos.")
             chatguru.send_message(chat_id=chat_id,
+            message_key="idade_insuficiente_facta",
             variables={"sugestao": sugestao},
             force_internal=True)
             chatguru.start_put_in_queue(chat_id)
