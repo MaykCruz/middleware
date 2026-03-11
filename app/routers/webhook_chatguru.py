@@ -44,7 +44,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
     logger.info(f"📥 [ChatGuru] Webhook recebido! ChatID: {chat_id} | Contexto: {contexto_atual}")
     session = SessionManager()
-    chatguru = ChatGuruService(chat_id)
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=payload.phone_id)
 
     if contexto_atual == "aguardando_simulacao_clt":
         cpf_limpo = clean_digits(payload.texto_mensagem)
@@ -65,6 +65,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             "cpf": cpf_limpo,
             "nome": nome_limpo,
             "celular": telefone_formatado,
+            "phone_id": payload.phone_id,
             "contact_id": payload.phone_id
         })
 
@@ -75,6 +76,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 "cpf": cpf_limpo,
                 "celular": telefone_formatado,
                 "nome": nome_limpo,
+                "phone_id": payload.phone_id,
                 "contact_id": payload.phone_id
             }
         )
@@ -99,6 +101,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             "cpf": cpf_limpo,
             "nome": nome_limpo,
             "celular": telefone_formatado,
+            "phone_id": payload.phone_id,
             "contact_id": payload.phone_id
         })
 
@@ -109,6 +112,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 "cpf": cpf_limpo,
                 "celular": telefone_formatado,
                 "nome": nome_limpo,
+                "phone_id": payload.phone_id,
                 "contact_id": payload.phone_id
             }
         )
@@ -119,7 +123,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         
         celery_app.send_task(
             "app.tasks.api_processor.executar_digitacao_fgts_chatguru",
-            kwargs={"chat_id": chat_id}
+            kwargs={"chat_id": chat_id, "phone_id": payload.phone_id}
         )
         return {"status": "ok", "fluxo": "digitacao_fgts"}
     
@@ -128,7 +132,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
         celery_app.send_task(
             "app.tasks.api_processor.executar_digitacao_clt_chatguru",
-            kwargs={"chat_id": chat_id}
+            kwargs={"chat_id": chat_id, "phone_id": payload.phone_id}
         )
         return {"status": "ok", "fluxo": "digitacao_clt"}
     
@@ -146,6 +150,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         cpf = contexto_salvo.get("cpf")
         nome = contexto_salvo.get("nome", "")
         celular = contexto_salvo.get("celular", "")
+        phone_id = contexto_salvo.get("phone_id")
         contact_id = contexto_salvo.get("contact_id")
 
         celery_app.send_task(
@@ -155,6 +160,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 "cpf": cpf,
                 "celular": celular,
                 "nome": nome,
+                "phone_id": phone_id,
                 "contact_id": contact_id,
                 "enviar_link": False,
                 "verificacao_manual": True
@@ -175,6 +181,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         cpf = contexto_salvo.get("cpf")
         nome = contexto_salvo.get("nome", "")
         contact_id = contexto_salvo.get("contact_id")
+        phone_id = contexto_salvo.get("phone_id")
 
         novo_telefone = formatar_telefone_br(payload.texto_mensagem)
 
@@ -195,6 +202,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 "cpf": cpf,
                 "celular": novo_telefone,
                 "nome": nome,
+                "phone_id": phone_id,
                 "contact_id": contact_id
             }
         )

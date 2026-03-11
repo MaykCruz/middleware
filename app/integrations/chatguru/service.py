@@ -8,8 +8,8 @@ from app.services.bot.memory.session import SessionManager
 logger = logging.getLogger(__name__)
 
 class ChatGuruService:
-    def __init__(self, chat_id: str):
-        self.client = ChatGuruClient()
+    def __init__(self, chat_id: str, phone_id: str = None):
+        self.client = ChatGuruClient(phone_id=phone_id)
         self.session = SessionManager()
         self.chat_id = chat_id
         self.chat_number = chat_id

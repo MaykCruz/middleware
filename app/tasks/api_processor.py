@@ -553,7 +553,7 @@ def executar_digitacao_clt(self, chat_id: str):
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
-def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None, celular: str = None, contact_id: str = None):
+def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = None, nome: str = None, celular: str = None, contact_id: str = None):
     """
     Executa a lógica de FGTS e responde via CHATGURU.
     Agora com suporte a Retry Inteligente.
@@ -566,7 +566,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
 
     facta_http_client = create_client()
     fgts_service = FGTSService(http_client=facta_http_client)
-    chatguru = ChatGuruService(chat_id)
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
         oferta = fgts_service.consultar_melhor_oportunidade(cpf, chat_id)
@@ -695,7 +695,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, nome: str = None,
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_clt_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
-def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular: str, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
+def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular: str, phone_id: str = None, contact_id: str = None, enviar_link: bool = True, verificacao_manual=False):
     """
     Executa a lógica pesada de CLT e responde via CHATGURU.
     """
@@ -707,7 +707,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
 
     facta_http_client = create_client()
     clt_service = CLTService(http_client=facta_http_client)
-    chatguru = ChatGuruService(chat_id)
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
         oferta = clt_service.consultar_oportunidade(cpf, nome, celular, chat_id, enviar_link=enviar_link)
@@ -963,7 +963,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
         except Exception as final_error: logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
-def executar_digitacao_fgts_chatguru(self, chat_id: str):
+def executar_digitacao_fgts_chatguru(self, chat_id: str, phone_id: str = None):
     """
     Task responsável por efetivar a proposta na Facta (Digitação).
     Acionada quando o cliente confirma a contratação.
@@ -972,7 +972,7 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str):
 
     facta_http_client = create_client()
     proposal_service = ProposalService(facta_http_client)
-    chatguru = ChatGuruService(chat_id)
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
         chatguru.send_message(chat_id, message_key="iniciando_digitacao")
@@ -1021,7 +1021,7 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str):
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_digitacao_clt_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
-def executar_digitacao_clt_chatguru(self, chat_id: str):
+def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
     """
     Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
     """
@@ -1029,7 +1029,7 @@ def executar_digitacao_clt_chatguru(self, chat_id: str):
 
     facta_http_client = create_client()
     proposal_service = ProposalService(facta_http_client)
-    chatguru = ChatGuruService(chat_id)
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
         chatguru.send_message(chat_id, message_key="iniciando_digitacao")

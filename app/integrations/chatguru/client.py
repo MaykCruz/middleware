@@ -17,11 +17,11 @@ def get_chatguru_client():
     return _global_chatguru_client
 
 class ChatGuruClient:
-    def __init__(self):
+    def __init__(self, phone_id: str = None):
         self.api_url = os.getenv("CHATGURU_API_URL")
         self.api_key = os.getenv("CHATGURU_API_KEY")
         self.account_id = os.getenv("CHATGURU_ACCOUNT_ID")
-        self.phone_id = os.getenv("CHATGURU_PHONE_ID")
+        self.phone_id = phone_id or os.getenv("CHATGURU_PHONE_ID")
 
         self.http_client = get_chatguru_client()
     
