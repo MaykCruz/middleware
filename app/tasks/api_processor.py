@@ -614,13 +614,13 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
 
             if isinstance(dados_bancarios, dict) and dados_bancarios:
                 logger.info(f"🎯 [Worker ChatGuru FGTS] Cliente {cpf} já possui conta ({dados_bancarios.get('banco')}). Disparando Fluxo de Auto-Contratação.")
-
                 chatguru.preparar_mensagem_dialogo(
                     message_key=oferta.message_key,
                     variables=oferta.variables
                 )
         
                 chatguru.start_flow_com_saldo_conta(chat_id)
+                chatguru.tag_com_proposta(chat_id)
             
             else:
                 logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
@@ -629,6 +629,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
                     variables=oferta.variables
                 )
                 chatguru.start_flow_com_valor_sem_conta(chat_id)
+                chatguru.tag_com_proposta(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
             chatguru.tag_sem_autorizacao(chat_id)
@@ -809,6 +810,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                 )
 
                 chatguru.start_flow_com_margem_conta(chat_id)
+                chatguru.tag_com_proposta(chat_id)
 
             else:
                 logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
@@ -817,6 +819,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                     variables=oferta.variables
                 )
                 chatguru.start_flow_com_valor_sem_conta(chat_id)
+                chatguru.tag_com_proposta(chat_id)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             chatguru.start_flow_wait_term(chat_id)

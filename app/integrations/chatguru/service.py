@@ -251,6 +251,11 @@ class ChatGuruService:
         DIALOG_ID_TAG_SEM_SALDO = os.getenv("CHATGURU_DIALOG_ID_TAG_SEM_SALDO")
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_SEM_SALDO)
+    
+    def tag_com_proposta(self, chat_number: str):
+        DIALOG_ID_TAG_COM_PROPOSTA = os.getenv("CHATGURU_DIALOG_ID_TAG_COM_PROPOSTA")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_TAG_COM_PROPOSTA)
 
     # MOCKS
     def start_flow_wait_term2(self, chat_number: str):
