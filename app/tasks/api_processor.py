@@ -538,6 +538,7 @@ def executar_digitacao_clt(self, chat_id: str):
     except Exception as e:
         if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
             raise e
+        
         try:
             huggy.send_message(
                 chat_id=chat_id,
