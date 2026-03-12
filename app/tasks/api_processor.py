@@ -680,6 +680,10 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
     except Exception as e:
         if isinstance(e, Retry):
             raise e  # Re-raise Retry exceptions to let Celery handle them
+        
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
+        
         logger.error(f"💥 [Worker ChatGuru FGTS] Erro crítico: {e}", exc_info=True)
         try:
             chatguru.send_message(
@@ -688,7 +692,7 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
                 variables={"erro": _safe_error_string(e)},
                 force_internal=True)
         except Exception as send_error:
-            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Huggy: {send_error}")
+            logger.error(f"⚠️ [Fallback] Falha ao enviar mensagem de erro técnica para o Chatguru: {send_error}")
         
         try:
             chatguru.start_put_in_queue(chat_id)
@@ -958,6 +962,10 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
 
     except Exception as e:
         if isinstance(e, Retry): raise e
+
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
+        
         logger.error(f"💥 [Worker ChatGuru CLT] Erro crítico: {e}", exc_info=True)
         try:
             chatguru.send_message(chat_id=chat_id, message_key="retorno_desconhecido", variables={"erro": _safe_error_string(e)}, force_internal=True)
@@ -1009,6 +1017,8 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str, phone_id: str = None):
             raise ValueError("API Facta retornou sucesso mas sem URL de formalização.")
     
     except Exception as e:
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
         try:
             chatguru.send_message(
                 chat_id=chat_id,
@@ -1077,6 +1087,8 @@ def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
         chatguru.finish_attendance(chat_id)
     
     except Exception as e:
+        if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
+            raise e
         try:
             chatguru.send_message(
                 chat_id=chat_id,
