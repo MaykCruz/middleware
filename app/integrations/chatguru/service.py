@@ -40,7 +40,7 @@ class ChatGuruService:
             return False
     
         if force_internal and delay == 0.0:
-            delay = 1.5
+            delay = 3
         
         if delay > 0:
             logger.info(f"⏳ [ChatGuru API] Aguardando {delay}s para garantir a ordem da mensagem...")
