@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Dict, Any, Optional
 from app.services.bot.content.message_loader import MessageLoader
 from app.integrations.chatguru.client import ChatGuruClient
@@ -15,7 +16,7 @@ class ChatGuruService:
         self.chat_number = chat_id
         
 
-    def send_message(self, chat_id: str, message_key: str, variables: Optional[Dict[str, Any]] = None, force_internal: bool = False):
+    def send_message(self, chat_id: str, message_key: str, variables: Optional[Dict[str, Any]] = None, force_internal: bool = False, delay: float = 0.0):
         """Envia mensagem para o cliente OU adiciona nota interna"""
         texto = ""
         if message_key == "blank":
@@ -38,6 +39,13 @@ class ChatGuruService:
         if not texto:
             return False
     
+        if force_internal and delay == 0.0:
+            delay = 1.5
+        
+        if delay > 0:
+            logger.info(f"⏳ [ChatGuru API] Aguardando {delay}s para garantir a ordem da mensagem...")
+            time.sleep(delay)
+        
         if force_internal:
             logger.info(f"📤 [ChatGuru API] Adicionando Nota Interna para {self.chat_number}")
             self.client.add_note(self.chat_number, texto)
