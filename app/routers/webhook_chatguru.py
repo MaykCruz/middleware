@@ -192,7 +192,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             return {"status": "erro", "msg": "Sessão expirada"}
         
         tentativas = contexto_salvo.get("tentativas_telefone", 0)
-        if tentativas >= 2:
+        if tentativas >= 1:
             logger.warning(f"🚫 [ChatGuru] Loop de telefone detectado para o Chat {chat_id}. Transferindo para humano.")
             msg_interna = f"🚫 [Limite de Tentativas] Cliente tentou inserir um novo telefone {tentativas + 1} vezes, mas todos foram barrados pela regra de negócio."
             chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
