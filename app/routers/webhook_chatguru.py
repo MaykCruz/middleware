@@ -25,6 +25,7 @@ class ChatGuruPayload(BaseModel):
     texto_mensagem: str
     bot_context: BotContext
     phone_id: Optional[str] = None
+    campos_personalizados: Optional[dict] = None
 
     class Config:
         extra = "allow"
@@ -48,6 +49,12 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
     if contexto_atual == "aguardando_simulacao_clt":
         cpf_limpo = clean_digits(payload.texto_mensagem)
+
+        if not validate_cpf(cpf_limpo) and payload.campos_personalizados:
+            cpf_custom = payload.campos_personalizados.get("CPF", "")
+            if cpf_custom:
+                cpf_limpo = clean_digits(cpf_custom)
+
         telefone_formatado = formatar_telefone_br(payload.celular)
         nome_limpo = limpar_nome(payload.nome)
 
@@ -84,6 +91,12 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
     elif contexto_atual == "aguardando_simulacao_fgts":
         cpf_limpo = clean_digits(payload.texto_mensagem)
+
+        if not validate_cpf(cpf_limpo) and payload.campos_personalizados:
+            cpf_custom = payload.campos_personalizados.get("CPF", "")
+            if cpf_custom:
+                cpf_limpo = clean_digits(cpf_custom)
+
         telefone_formatado = formatar_telefone_br(payload.celular)
         nome_limpo = limpar_nome(payload.nome)
 
