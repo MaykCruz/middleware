@@ -191,6 +191,17 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Sessão expirada"}
         
+        tentativas = contexto_salvo.get("tentativas_telefone", 0)
+        if tentativas >= 2:
+            logger.warning(f"🚫 [ChatGuru] Loop de telefone detectado para o Chat {chat_id}. Transferindo para humano.")
+            msg_interna = f"🚫 [Limite de Tentativas] Cliente tentou inserir um novo telefone {tentativas + 1} vezes, mas todos foram barrados pela regra de negócio."
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Parece que os telefones informados já estão associados a outros cadastros. Para agilizar, vou transferir seu atendimento para um de nossos especialistas analisar isso para você, ok?"})
+            chatguru.start_put_in_queue(chat_id)
+
+            session.clear_session(chat_id)
+            return {"status": "erro", "msg": "Limite de tentativas excedido"}
+        
         cpf = contexto_salvo.get("cpf")
         nome = contexto_salvo.get("nome", "")
         contact_id = contexto_salvo.get("contact_id")

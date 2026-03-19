@@ -7,3 +7,5 @@ venv/
 .vscode/
 .idea/
 REGRAS_*.md
+celerybeat-shecule
+celerybeat.pid
