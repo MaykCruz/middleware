@@ -205,6 +205,24 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_AGUARDANDO_TERMO)
     
+    def start_macica_3589(self, chat_number: str):
+        """
+        Executa o diálogo da maciça para o número 3589.
+        """
+        DIALOG_ID_COM_MACICA_3589 = os.getenv("CHATGURU_DIALOG_COM_MACICA_3589")
+        logger.info(f"📵 [ChatGuru API] Período de Maciça! Executando o diálogo no Chat {chat_number}.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_MACICA_3589)
+    
+    def start_macica_8037(self, chat_number: str):
+        """
+        Executa o diálogo da maciça para o número 8037.
+        """
+        DIALOG_ID_COM_MACICA_8037 = os.getenv("CHATGURU_DIALOG_COM_MACICA_8037")
+        logger.info(f"📵 [ChatGuru API] Período de Maciça! Executando o diálogo no Chat {chat_number}.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_MACICA_8037)
+    
     def tag_recusa_definitiva(self, chat_number: str):
         DIALOG_ID_TAG_RECUSA_DEFINITIVA = os.getenv("CHATGURU_DIALOG_ID_TAG_RECUSA_DEFINITIVA")
         if self.chat_number:
