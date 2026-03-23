@@ -554,7 +554,7 @@ def executar_digitacao_clt(self, chat_id: str):
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
-def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = None, nome: str = None, celular: str = None, contact_id: str = None):
+def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = None, nome: str = None, celular: str = None, contact_id: str = None, verificacao_manual: bool = False):
     """
     Executa a lógica de FGTS e responde via CHATGURU.
     Agora com suporte a Retry Inteligente.
@@ -633,8 +633,34 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
                 chatguru.tag_com_proposta(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_AUTORIZACAO:
-            chatguru.tag_sem_autorizacao(chat_id)
-            chatguru.start_flow_authorization(chat_id)
+            if verificacao_manual or self.request.retries > 0:
+                MAX_AUTH_RETRIES = 3
+                AUTH_DELAY = 30
+
+                if self.request.retries < MAX_AUTH_RETRIES:
+                    if self.request.retries == 0 or self.request.retries % 3 == 0:
+                        logger.info(f"🔄 [FGTS Termos] Autorização na Caixa ainda não refletiu. Retentando em {AUTH_DELAY}s... ({tentativa_atual}/{MAX_AUTH_RETRIES})")
+                        
+                        msg_enriquecida = (
+                            f"Sem autorização!\n\n"
+                            f"🔄 *Reconsultando em {COUNTDOWN}s... (Tentativa {tentativa_atual}/{MAX_AUTH_RETRIES})*"
+                        )
+                        chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_enriquecida}, force_internal=True)
+                        
+                    raise self.retry(countdown=AUTH_DELAY, max_retries=MAX_AUTH_RETRIES)
+                
+                else:
+                    logger.info(f"🛑 [Worker ChatGuru FGTS] Loop interrompido. Autorização não encontrada após limite. Distribuindo Chat {chat_id}.")
+                    chatguru.send_message(
+                        chat_id=chat_id, 
+                        message_key="blank", 
+                        variables={"blank": "Poxa, fiz várias tentativas mas o sistema da Caixa continua a dizer que não estamos autorizados a consultar. Vou transferir o seu atendimento para um atendente o ajudar a verificar o que se passa no aplicativo! 👨‍💻"}
+                    )
+                    chatguru.start_put_in_queue(chat_id)
+            else:
+                logger.info(f"⚠️ [Worker ChatGuru FGTS] Cliente sem autorização. Enviando fluxo padrão.")
+                chatguru.tag_sem_autorizacao(chat_id)
+                chatguru.start_flow_authorization(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_ADESAO:
             chatguru.tag_sem_adesao(chat_id)

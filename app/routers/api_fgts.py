@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, Header
 from pydantic import BaseModel, Field
+from typing import Optional
 from app.infrastructure.celery import celery_app
 from app.services.bot.memory.session import SessionManager
 from app.integrations.huggy.service import HuggyService
@@ -16,6 +17,10 @@ class SimulacaoFGTSRequest(BaseModel):
     nome: str = Field(None, description="Nome do cliente")
     celular: str = Field(..., description="Celular para contato/digitação")
     contact_id: str = Field(None, description="ID interno do contato na plataforma")
+
+class VerificarAuthFGTSRequest(BaseModel):
+    chat_id: str
+    verificacao_manual: Optional[bool] = True
 
 class ContratacaoFGTSRequest(BaseModel):
     chat_id: str = Field(..., description="ID do chat para recuperar contexto e efetivar")
@@ -100,6 +105,58 @@ async def iniciar_simulacao_fgts(
         "product": "FGTS",
         "task_id": task.id,
         "message": "Solicitação FGTS iniciada."
+    }
+
+@router.post("/verificar-autorizacao")
+async def verificar_autorizacao_fgts(
+    request: VerificarAuthFGTSRequest,
+    x_token: str = Header(None)
+):
+    """
+    Endpoint chamado pelo botão 'Já autorizei' do FGTS.
+    Recupera o CPF da memória (Redis) pelo Chat ID e reprocessa com loop de espera.
+    """
+    logger.info(f"🔄 [API FGTS] Verificando autorização para Chat {request.chat_id}")
+
+    session = SessionManager()
+    contexto = session.get_context(request.chat_id)
+
+    cpf = contexto.get("cpf") if contexto else None
+
+    if not cpf:
+        logger.warning(f"⚠️ [API FGTS] Sessão expirada ou não encontrada para Chat {request.chat_id}")
+        return {
+            "status": "ERRO",
+            "code": "sessao_expirada",
+            "message": "Sessão não encontrada ou expirada. Por favor, reinicie o atendimento."
+        }
+    
+    nome = contexto.get("nome", "")
+    celular = contexto.get("celular", "")
+    contact_id = contexto.get("contact_id")
+    phone_id = contexto.get("phone_id")
+
+    logger.info(f"✅ [API FGTS] Contexto recuperado: CPF {cpf}")
+
+    # Chama a Task passando a flag de verificacao_manual = True
+    task = celery_app.send_task(
+        "app.tasks.api_processor.executar_fluxo_fgts_chatguru",
+        kwargs={
+            "chat_id": request.chat_id,
+            "cpf": cpf,
+            "nome": nome,
+            "celular": celular,
+            "phone_id": phone_id,
+            "contact_id": contact_id,
+            "verificacao_manual": request.verificacao_manual
+        }
+    )
+
+    return {
+        "status": "PROCESSANDO",
+        "code": "sucesso",
+        "task_id": task.id,
+        "message": "Reconsulta de autorização FGTS iniciada com loop de espera."
     }
 
 @router.post("/contratar")

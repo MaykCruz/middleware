@@ -131,6 +131,37 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         )
         return {"status": "ok", "fluxo": "simulacao_fgts"}
     
+    elif contexto_atual == "verificar_autorizacao_fgts":
+        logger.info(f"🔄 [ChatGuru] Verificação manual de autorização FGTS solicitada (Chat {chat_id})")
+
+        contexto_salvo = session.get_context(chat_id)
+        if not contexto_salvo or not contexto_salvo.get("cpf"):
+            logger.error(f"❌ [ChatGuru] Sessão perdida para o Chat {chat_id}")
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "❌ [Sessão Expirada] Cliente clicou para verificar autorização FGTS, mas o contexto no Redis expirou ou foi perdido."}, force_internal=True)
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Puxa, parece que demoramos um pouquinho e nossa sessão expirou. Um consultor humano vai dar continuidade no seu atendimento de onde paramos!"})
+            chatguru.start_put_in_queue(chat_id)
+            return {"status": "erro", "msg": "Sessão expirada"}
+        
+        cpf = contexto_salvo.get("cpf")
+        nome = contexto_salvo.get("nome", "")
+        celular = contexto_salvo.get("celular", "")
+        phone_id = contexto_salvo.get("phone_id")
+        contact_id = contexto_salvo.get("contact_id")
+
+        celery_app.send_task(
+            "app.tasks.api_processor.executar_fluxo_fgts_chatguru",
+            kwargs={
+                "chat_id": chat_id,
+                "cpf": cpf,
+                "celular": celular,
+                "nome": nome,
+                "phone_id": phone_id,
+                "contact_id": contact_id,
+                "verificacao_manual": True
+            }
+        )
+        return {"status": "ok", "fluxo": "verificar_autorizacao_fgts"}
+    
     elif contexto_atual == "aguardando_digitacao_fgts":
         logger.info(f"🚀 [ChatGuru] Disparando Task: Digitação FGTS para o Chat {chat_id}")
         
