@@ -218,7 +218,7 @@ def executar_fluxo_clt(self, chat_id: str, cpf: str, nome: str, celular: str, co
                     huggy.send_message(
                         chat_id=chat_id,
                         message_key="blank",
-                        variables={"blank": "Poxa, ainda não consegui identificar sua autorização no sistema. Vou transferir para um atendente humano te ajudar, só um momento! 👨‍💻"}
+                        variables={"blank": "Poxa, ainda não consegui identificar sua autorização no sistema. Vou transferir para um atendente te ajudar, só um momento! 👨‍💻"}
                     )
                     huggy.start_put_in_queue(chat_id)
 
