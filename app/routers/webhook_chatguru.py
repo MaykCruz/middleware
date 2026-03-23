@@ -191,7 +191,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Sessão expirada"}
         
-        tentativas = contexto_salvo.get("tentativas_telefone", 0)
+        tentativas = contexto_salvo.get("tentativas_telefone", 1)
         if tentativas >= 1:
             logger.warning(f"🚫 [ChatGuru] Loop de telefone detectado para o Chat {chat_id}. Transferindo para humano.")
             msg_interna = f"🚫 [Limite de Tentativas] Cliente tentou inserir um novo telefone {tentativas + 1} vezes, mas todos foram barrados pela regra de negócio."
@@ -212,10 +212,11 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         if not novo_telefone:
             msg_interna = f"🚫 [Telefone Inválido] O cliente enviou um telefone inválido no fluxo de correção:\nDigitou: {payload.texto_mensagem}"
             chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_interna}, force_internal=True)
-            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ O formato do telefone não foi reconhecido pelo nosso sistema. Vou chamar um especialista humano para te ajudar com isso."})
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ O formato do telefone não foi reconhecido pelo nosso sistema. Vou chamar um atendente para te ajudar com isso."})
             chatguru.start_put_in_queue(chat_id)
             return {"status": "erro", "msg": "Telefone inválido"}
         
+        contexto_salvo["tentativas_telefone"] = tentativas + 1
         contexto_salvo["celular"] = novo_telefone
         session.set_context(chat_id, contexto_salvo)
 
