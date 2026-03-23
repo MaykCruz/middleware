@@ -1,5 +1,6 @@
 import logging
 import httpx
+import math
 from datetime import datetime
 from app.integrations.facta.clt.client import FactaCLTAdapter
 from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses, formatar_moeda
@@ -181,8 +182,8 @@ class FactaCLTService:
         salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
 
         fator_comprometimento = self._definir_fator_margem(salario)
-
-        parcela_maxima = round(margem * fator_comprometimento, 2)
+        parcela_calculada = margem * fator_comprometimento
+        parcela_maxima = math.floor(parcela_calculada * 100) / 100.0
 
         logger.debug(f"💰 [CLT] Salário: {salario} | Fator: {fator_comprometimento} | Margem Líq: {margem} -> Comprometida: {parcela_maxima}")
 
