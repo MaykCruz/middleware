@@ -597,7 +597,8 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
         STATUS_SOMENTE_DIALOGO = [
             AnalysisStatus.SALDO_NAO_ENCONTRADO,
             AnalysisStatus.SEM_AUTORIZACAO,
-            AnalysisStatus.APROVADO
+            AnalysisStatus.APROVADO,
+            AnalysisStatus.SEM_ADESAO
 
         ]
 
