@@ -927,7 +927,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.REPROVADO_POLITICA_FACTA:
-            msg_tecnica = oferta.raw_details.get("msg_tecnica")
+            msg_tecnica = oferta.raw_details.get("sugestao_bancos") or oferta.raw_details.get("msg_tecnica")
             chatguru.send_message(chat_id=chat_id,
             message_key="blank",
             variables={"blank": msg_tecnica},
@@ -944,22 +944,21 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)
         
-        elif oferta.status == AnalysisStatus.MENOS_SEIS_MESES:
-            msg_tecnica = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id,
-            message_key="blank",
-            variables={"blank": msg_tecnica},
-            force_internal=True)
-            chatguru.tag_tempo_registro(chat_id)
-            chatguru.finish_attendance(chat_id)
-        
-        elif oferta.status == AnalysisStatus.EMPRESA_RECENTE:
-            msg_tecnica = oferta.raw_details.get("msg_tecnica")
-            chatguru.send_message(chat_id=chat_id,
-            message_key="blank",
-            variables={"blank": msg_tecnica},
-            force_internal=True)
-            chatguru.tag_celestista_restricao(chat_id)
+        elif oferta.status in [AnalysisStatus.EMPRESA_RECENTE, AnalysisStatus.MENOS_SEIS_MESES, AnalysisStatus.CELETISTA_RESTRICAO]:
+            msg_interna = oferta.raw_details.get("msg_tecnica")
+
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_interna},
+                force_internal=True
+            )
+
+            if oferta.status == AnalysisStatus.EMPRESA_RECENTE:
+                chatguru.tag_celestista_restricao(chat_id)
+            elif oferta.status == AnalysisStatus.MENOS_SEIS_MESES:
+                chatguru.tag_tempo_registro(chat_id)
+                
             chatguru.finish_attendance(chat_id)
         
         elif oferta.status == AnalysisStatus.SEM_OFERTA:

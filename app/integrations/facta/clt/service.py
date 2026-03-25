@@ -3,7 +3,7 @@ import httpx
 import math
 from datetime import datetime
 from app.integrations.facta.clt.client import FactaCLTAdapter
-from app.utils.formatters import parse_valor_monetario, formatar_display_tempo, calcular_meses, formatar_moeda
+from app.utils.formatters import parse_valor_monetario, calcular_meses
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +13,6 @@ class FactaCLTService:
         self.adapter = FactaCLTAdapter(http_client)
     
     def simular_clt(self, cpf: str, nome: str, celular: str, enviar_link_se_necessario: bool = True) -> dict:
-        """
-        Fluxo Otimista:
-        1. Tenta Consultar Dados.
-        2. Se der TOKEN_EXPIRADO -> Solicita Termo.
-        3. Se não precisar de termo -> Segue fluxo normal.
-        """
         resp_dados = self.adapter.consultar_dados_trabalhador(cpf)
         status_dados = resp_dados["status"]
 
@@ -39,7 +33,6 @@ class FactaCLTService:
                 }
 
             logger.info(f"🔐 [CLT] Termo expirado para {cpf}. Solicitando novo termo...")
-
             resp_termo = self.solicitar_termo_multicanal(cpf, nome, celular)
             status_termo = resp_termo["status"]
 
@@ -87,17 +80,14 @@ class FactaCLTService:
                 "aprovado": False,
                 "motivo": validacao["motivo"], 
                 "msg_tecnica": validacao["msg"], 
-                "dados": trabalhador
+                "dados_trabalhador": trabalhador
             }
-
             for chave, valor in validacao.items():
                 if chave not in ["ok", "motivo", "msg"]:
                     retorno[chave] = valor
-                    
             return retorno
         
         matricula = trabalhador.get("matricula")
-
         if not matricula:
             logger.warning(f"⚠️ [CLT] CPF {cpf} sem matrícula retornada na consulta de dados. Abortando.")
             return {
@@ -115,70 +105,15 @@ class FactaCLTService:
             admissao=trabalhador.get("dataAdmissao")
         )
 
-        if resp_politica["status"] != "SUCESSO":
-
-            if resp_politica["status"] == "REPROVADO_POLITICA_FACTA":
-                data_admissao = trabalhador.get("dataAdmissao")
-                tempo_trabalho = calcular_meses(data_admissao)
-                texto_admissao = formatar_display_tempo(data_admissao)
-            
-                margem_minima_distribuicao = 150.00 if tempo_trabalho < 12 else 50.00
-
-                if margem < margem_minima_distribuicao:
-                    logger.info(f"🚫 [CLT] Reprovado Facta e margem baixa ({margem}). Min: {margem_minima_distribuicao}. Encerrando.")
-                    return {
-                        "aprovado": False,
-                        "motivo": "SEM_MARGEM",
-                        "msg_tecnica": f"Reprovado na política Facta e margem R$ {margem} insuficiente para transbordo (Mínimo: {margem_minima_distribuicao})."
-                    }
-                
-                logger.info(f"🧐 [CLT] Reprovado Facta. Tempo de casa: {tempo_trabalho} meses.")
-            
-                if tempo_trabalho < 3:
-                    return {
-                        "aprovado": False,
-                        "motivo": "MENOS_SEIS_MESES",
-                        "msg_tecnica": "Tempo de trabalho inferior a 3 meses (Mínimo exigido pelo mercado)."
-                    }
-                
-                data_inicio_empresa = trabalhador.get("dataInicioAtividadeEmpregador")
-                tempo_empresa_meses = calcular_meses(data_inicio_empresa)
-
-                logger.info(f"🏢 [CLT] Empresa iniciou em {data_inicio_empresa} ({tempo_empresa_meses} meses).")
-
-                if tempo_empresa_meses < 24:
-                    return {
-                        "aprovado": False,
-                        "motivo": "EMPRESA_RECENTE",
-                        "msg_tecnica": f"Empresa empregadora muito recente ({tempo_empresa_meses} meses)."
-                    }
-                
-                margem_disp = parse_valor_monetario(trabalhador.get("valorMargemDisponivel", 0))
-                msg_base = resp_politica.get("msg_original", "Reprovado na política de crédito Facta.")
-
-                msg_enriquecida = (
-                    f"{msg_base}\n"
-                    f"📊 *Dados para análise:*\n"
-                    f"• Margem: R$ {formatar_moeda(margem_disp)}\n"
-                    f"• Admissão: {texto_admissao}\n"
-                    f"• Empresa: {formatar_display_tempo(data_inicio_empresa)}"
-                )
-
-                return {
-                    "aprovado": False,
-                    "motivo": resp_politica["status"],
-                    "msg_tecnica": msg_enriquecida
-                }
-                
+        if resp_politica["status"] != "SUCESSO":   
             return {
                 "aprovado": False,
                 "motivo": resp_politica["status"],
-                "msg_tecnica": resp_politica.get("msg_original"),
+                "msg_tecnica": resp_politica.get("msg_original", "Recusado pela Facta."),
                 "dados_trabalhador": trabalhador
             }
         
         politica = resp_politica["dados"]
-
         salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
 
         fator_comprometimento = self._definir_fator_margem(salario)
@@ -190,13 +125,6 @@ class FactaCLTService:
         return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima, margem_real=margem)
     
     def _definir_fator_margem(self, salario: float) -> float:
-        """
-        Define a porcentagem da margem que pode ser utilizada baseada no salário.
-        Regra:
-        - Até 5.000: 97%
-        - Entre 5.000 e 7.350: 90%
-        - Acima de 7.350: 80%
-        """
         if salario <= 5000.00:
             return 0.97
         elif salario <= 7350.00:
@@ -273,9 +201,6 @@ class FactaCLTService:
         return {"ok": True}
     
     def _encontrar_melhor_tabela(self, cpf, trab, politica, parcela_max, margem_real: float = 0.0) -> dict:
-        """
-        Busca operações e filtra estritamente pelo prazo e valor da política.
-        """
         nasc = trab.get("dataNascimento")
         resp = self.adapter.buscar_operacoes(cpf, nasc, valor_parcela=parcela_max)
 
@@ -330,12 +255,9 @@ class FactaCLTService:
 
             if valor_liberado > teto_politica:
                 logger.info(f"💰 [CLT] Melhor opção ({valor_liberado}) excede teto {teto_politica}. Recalculando...")
-
                 res_recalculo = self._recalcular_por_valor(cpf, nasc, prazo_politica, teto_politica, trab)
-                
                 if res_recalculo["aprovado"]:
                     return res_recalculo
-                
                 else:
                     logger.info(f"⚠️ [CLT] Falha no recálculo: {res_recalculo.get('msg_tecnica')}")
                     oferta_encontrada = None
@@ -343,49 +265,10 @@ class FactaCLTService:
                     msg_falha = res_recalculo.get("msg_tecnica", "Erro ao ajustar valor ao teto.")
 
         if not oferta_encontrada:
-            data_admissao = trab.get("dataAdmissao")
-            tempo_trabalho = calcular_meses(data_admissao)
-
-            margem_minima_distribuicao = 100.00 if tempo_trabalho < 12 else 50.00
-            if margem_real < margem_minima_distribuicao:
-                return {
-                    "aprovado": False,
-                    "motivo": "SEM_MARGEM",
-                    "msg_tecnica": f"Sem oferta Facta e margem R$ {margem_real} insuficiente para transbordo (Mínimo: {margem_minima_distribuicao})."
-                }
-            
-            if tempo_trabalho < 3:
-                return {
-                    "aprovado": False,
-                    "motivo": "MENOS_SEIS_MESES", 
-                    "msg_tecnica": "Sem oferta Facta e tempo de trabalho inferior a 3 meses (Inviável para outros bancos)."
-                }
-            
-            data_inicio_empresa = trab.get("dataInicioAtividadeEmpregador")
-            tempo_empresa_meses = calcular_meses(data_inicio_empresa)
-
-            if tempo_empresa_meses < 24:
-                 return {
-                    "aprovado": False,
-                    "motivo": "EMPRESA_RECENTE",
-                    "msg_tecnica": f"Sem oferta Facta e empresa muito recente ({tempo_empresa_meses} meses)." 
-                }
-            
-            texto_admissao = formatar_display_tempo(data_admissao)
-            texto_empresa = formatar_display_tempo(data_inicio_empresa)
-
-            msg_enriquecida = (
-                f"{msg_falha}\n"
-                f"📊 *Dados para análise:*\n"
-                f"• Margem: R$ {formatar_moeda(margem_real)}\n"
-                f"• Admissão: {texto_admissao}\n"
-                f"• Empresa: {texto_empresa}"
-            )
-            
             return {
                 "aprovado": False,
                 "motivo": motivo_falha,
-                "msg_tecnica": msg_enriquecida,
+                "msg_tecnica": msg_falha,
                 "dados_trabalhador": trab
             } 
         
@@ -399,17 +282,12 @@ class FactaCLTService:
                 "tabela_nome": melhor_opcao.get("tabela", "Padrão"),
                 "codigo_tabela": melhor_opcao.get("codigoTabela"),
                 "coeficiente": melhor_opcao.get("coeficiente"),
-                "dados_trabalhador": trab # Repassando dados para eventual confirmação
+                "dados_trabalhador": trab
             }
         }
     
     def _recalcular_por_valor(self, cpf, nasc, prazo, valor_teto, trab):
-        """
-        Refaz a simulação limitando pelo valor (Opção 1), mantendo o prazo.
-        Baseado em operacoes_disponiveis_valor do api_facta.py.
-        """
         resp = self.adapter.buscar_operacoes(cpf, nasc, valor_solicitado=valor_teto)
-
         msg_erro = str(resp.get("msg_original", "")).lower()
 
         if "nenhuma tabela" in msg_erro:
@@ -420,10 +298,7 @@ class FactaCLTService:
              return {"aprovado": False, "motivo": "ERRO_RECALCULO", "msg_tecnica": resp.get("msg_original")}
 
         tabelas = resp["dados"].get("tabelas", [])
-        
-        # Filtra novamente pelo prazo (garantia)
         tabelas_no_prazo = [t for t in tabelas if t.get("prazo") == prazo]
-        
         if not tabelas_no_prazo:
              return {"aprovado": False, "motivo": "ERRO_RECALCULO", "msg_tecnica": "Falha ao ajustar valor no prazo correto"}
         
@@ -477,8 +352,6 @@ class FactaCLTService:
 
         resultado_wpp = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="WHATSAPP")
         resultado_sms = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="SMS")
-
-        logger.info(f"📊 [CLT Service] Resultado Termo -> WPP: {resultado_wpp.get('status')} | SMS: {resultado_sms.get('status')}")
 
         if resultado_wpp.get("status") == "ERRO_TECNICO" and resultado_sms.get("status") != "ERRO_TECNICO":
             return resultado_sms

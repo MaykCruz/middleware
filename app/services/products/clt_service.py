@@ -1,10 +1,11 @@
 import logging
 import httpx
+from datetime import datetime
 from app.integrations.facta.clt.service import FactaCLTService
 from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
-from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses
+from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses, parse_valor_monetario
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,22 @@ class CLTService:
         self.facta_service = FactaCLTService(http_client)
         self.bank_service = BankAccountService(http_client)
         self.session_manager = SessionManager()
+
+    def _gerar_sugestoes_transbordo(self, idade: int, meses_casa: int, meses_empresa: int) -> list:
+        sugestoes = []
+        # Mercantil: 20-58 | Casa >= 12 | Empresa >= 36
+        if 20 <= idade <= 58 and meses_casa >= 12 and meses_empresa >= 36:
+            sugestoes.append("Mercantil (20-58)")
+        
+        # V8: 21-65 | Casa >= 3 | Empresa >= 36
+        if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 36:
+            sugestoes.append("V8 (21-65)")
+        
+        # C6 Bank: 21-60 | Casa >= 3 | Empresa >= 24
+        if 21 <= idade <= 60 and meses_casa >= 3 and meses_empresa >= 24:
+            sugestoes.append("C6 Bank (21-60)")
+            
+        return sugestoes
         
     def consultar_oportunidade(self, cpf: str, nome: str, celular: str, chat_id: str, enviar_link: bool = True) -> CreditOffer:
         """
@@ -111,6 +128,130 @@ class CLTService:
                 )
         
         if not aprovado:
+            if motivo in ["IDADE_INSUFICIENTE_FACTA", "REPROVADO_POLITICA_FACTA", "SEM_OPERACOES", "SEM_PRAZO_COMPATIVEL"]:
+                dados_trab = resultado_raw.get("dados_trabalhador", {})
+
+                if not dados_trab:
+                    return CreditOffer(
+                        status=AnalysisStatus.ERRO_TECNICO,
+                        message_key="retorno_desconhecido",
+                        is_internal=True,
+                        variables={
+                        "erro": msg_tecnica
+                        },
+                        raw_details=resultado_raw
+                    )
+                
+                idade = int(resultado_raw.get("idade", 0))
+                if idade == 0 and dados_trab.get("dataNascimento"):
+                    nasc = datetime.strptime(dados_trab.get("dataNascimento"), "%d/%m/%Y")
+                    idade = (datetime.today() - nasc).days // 365
+
+                sexo = resultado_raw.get("sexo", "Não informado")
+                if sexo == "Não informado" and dados_trab.get("sexo_codigo"):
+                    sexo = "F" if str(dados_trab.get("sexo_codigo")) == "3" else "M"
+                
+                margem = float(resultado_raw.get("margem_disponivel", 0.0))
+                if margem == 0.0 and dados_trab.get("valorMargemDisponivel"):
+                    margem = parse_valor_monetario(dados_trab.get("valorMargemDisponivel"))
+                
+                admissao = resultado_raw.get("data_admissao") or dados_trab.get("dataAdmissao")
+                meses_casa = calcular_meses(admissao) if admissao else 0
+                
+                inicio_empresa = dados_trab.get("dataInicioAtividadeEmpregador")
+                meses_empresa = calcular_meses(inicio_empresa) if inicio_empresa else 0
+
+                margem_minima_distribuir = 150.00 if meses_casa < 12 else 50.00
+
+                if margem < margem_minima_distribuir:
+                    return CreditOffer(
+                        status=AnalysisStatus.SEM_MARGEM,
+                        message_key="sem_margem_cliente",
+                        raw_details={
+                            **resultado_raw,
+                            "msg_tecnica": f"Margem R$ {formatar_moeda(margem)} insuficiente. (Mínimo exigido: R$ {formatar_moeda(margem_minima_distribuir)} p/ {meses_casa} meses de casa)."
+                        }
+                    )
+                
+                sugestoes = self._gerar_sugestoes_transbordo(idade, meses_casa, meses_empresa)
+                msg_original_facta = resultado_raw.get("msg_tecnica", "Reprovado na política de crédito.")
+
+                if sugestoes:
+                    texto_sugestao = ", ".join(sugestoes)
+                    msg_final = (
+                        f"{msg_original_facta}\n"
+                        f"📊 *Dados para análise:*\n"
+                        f"• Cliente: {idade} anos ({sexo})\n"
+                        f"• Margem: R$ {formatar_moeda(margem)}\n"
+                        f"• Admissão: {formatar_display_tempo(admissao)}\n"
+                        f"• Empresa: {formatar_display_tempo(inicio_empresa)}\n\n"
+                        f"🎯 *Bancos Recomendados:* {texto_sugestao}"
+                    )
+
+                    return CreditOffer(
+                        status=AnalysisStatus.REPROVADO_POLITICA_FACTA,
+                        message_key="clt_nao_elegivel",
+                        raw_details={**resultado_raw, "sugestao_bancos": msg_final}
+                    )
+                else:
+                    # 6. Matriz Cruzada de Recusas
+                    texto_conflito = ""
+                    chave_mensagem = "clt_recusa_definitiva"
+                    variaveis_mensagem = {}
+                    
+                    # 1º PRIORIDADE: Idade fora da política
+                    if motivo == "IDADE_INSUFICIENTE_FACTA" or idade < 20 or idade > 65:
+                        status_falha = AnalysisStatus.IDADE_INSUFICIENTE
+                        chave_mensagem = "idade_insuficiente" 
+                        variaveis_mensagem = {"idade": str(idade)} 
+                        texto_conflito = f"❌ *Idade* ({idade} anos) fora das janelas de aprovação de todos os parceiros."
+
+                    # 2º PRIORIDADE: Pouco tempo de carteira assinada
+                    elif meses_casa < 3:
+                        status_falha = AnalysisStatus.MENOS_SEIS_MESES
+                        chave_mensagem = "menos_seis_meses" 
+                        texto_conflito = f"❌ *Todos os bancos* exigem no mínimo 3 meses de carteira assinada (Cliente tem apenas {meses_casa} meses)."
+                    
+                    # 3º PRIORIDADE: Empresa muito nova
+                    elif meses_empresa < 24:
+                        status_falha = AnalysisStatus.EMPRESA_RECENTE
+                        chave_mensagem = "clt_recusa_definitiva"
+                        texto_conflito = f"❌ *Todos os bancos* exigem no mínimo 24 meses de CNPJ ativo (Cliente tem apenas {meses_empresa} meses)."
+                    
+                    # 4º PRIORIDADE: O "Limbo"
+                    else:
+                        status_falha = AnalysisStatus.CELETISTA_RESTRICAO
+                        chave_mensagem = "clt_recusa_definitiva"
+                        
+                        motivos = []
+                        if meses_empresa < 36:
+                            motivos.append(f"❌ *V8 / Mercantil:* Exigem mín. de 36 meses de empresa (Tem {meses_empresa}m).")
+                        if idade < 21 or idade > 60:
+                            motivos.append(f"❌ *C6 Bank:* Idade ({idade} anos) fora da política (Aceita 21 a 60).")
+
+                        texto_conflito = "\n".join(motivos) if motivos else "❌ Perfil incompatível com a matriz atual."
+
+                    # -------------------------------------------------
+                    resultado_raw["msg_tecnica"] = (
+                        f"{msg_original_facta}\n"
+                        f"⚠️ *Análise de Restrição Cruzada*\n"
+                        f"📊 *Dados para análise:*\n"
+                        f"• Cliente: {idade} anos ({sexo})\n"
+                        f"• Margem: R$ {formatar_moeda(margem)}\n"
+                        f"• Admissão: {formatar_display_tempo(admissao)}\n"
+                        f"• Empresa: {formatar_display_tempo(inicio_empresa)}\n\n"
+                        f"🔍 *Motivo da recusa global:*\n"
+                        f"{texto_conflito}"
+                    )
+                    # -------------------------------------------------
+
+                    return CreditOffer(
+                        status=status_falha,
+                        message_key=chave_mensagem,
+                        variables=variaveis_mensagem,
+                        raw_details=resultado_raw
+                    )
+
             if motivo == "TELEFONE_VINCULADO_OUTRO_CPF":
                 return CreditOffer(
                     status=AnalysisStatus.TELEFONE_VINCULADO_OUTRO_CPF,

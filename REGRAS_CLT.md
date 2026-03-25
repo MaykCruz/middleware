@@ -53,9 +53,8 @@ Regras específicas para sugerir bancos na mensagem interna quando ocorre o tran
 | Banco | Idade | Tempo de Casa (Admissão) | Tempo de Empresa (CNPJ) |
 | :--- | :--- | :--- | :--- |
 | **Mercantil** | 20 a 58 anos | ≥ 12 meses | **≥ 36 meses** |
-| **Presença** | 21 a 65 anos | ≥ 3 meses | **≥ 36 meses** |
-| **C6 Bank** | 21 a 60 anos | ≥ 6 meses | **≥ 24 meses** |
-| **V8** | 21 a 65 anos | ≥ 3 meses | **≥ 3 meses** |
+| **C6 Bank** | 21 a 60 anos | ≥ 3 meses | **≥ 24 meses** |
+| **V8** | 21 a 65 anos | ≥ 3 meses | **≥ 36 meses** |
 
 ---
 

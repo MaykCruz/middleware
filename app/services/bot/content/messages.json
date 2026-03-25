@@ -183,7 +183,7 @@
         "text": "🚫 Recusa Facta: Idade/Política.\n\n📊 Análise de Enquadramento:\n{sugestao}\n\nAutodistribuindo atendimento!"
     },
     "idade_insuficiente": {
-        "text": "Cliente possui {idade} anos, não enquadra em nenhum banco."
+        "text": "Poxa, infelizmente os bancos parceiros não aprovaram a simulação por conta de uma regrinha interna de idade. 😕\n\nHoje, eles só aceitam propostas de clientes que tenham entre 20 e 65 anos. Como você tem {idade} anos, o sistema deles acaba bloqueando a operação automaticamente.\n\nDe qualquer forma, agradeço muito pelo seu contato e fico à disposição caso precise de algo no futuro! 🙌"
     },
     "sem_margem": {
         "text": "Cliente não possui margem suficiente: {margem}."
