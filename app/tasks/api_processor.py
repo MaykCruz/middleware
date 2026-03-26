@@ -843,6 +843,13 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
 
                 chatguru.start_flow_com_margem_conta(chat_id)
                 chatguru.tag_com_proposta(chat_id)
+                alerta_extra = oferta.raw_details.get("nota_interna_extra")
+                if alerta_extra:
+                    logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
+                    chatguru.send_message(chat_id=chat_id,
+                    message_key="blank",
+                    variables={"blank": alerta_extra},
+                    force_internal=True)
 
             else:
                 logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
@@ -852,6 +859,13 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                 )
                 chatguru.start_flow_com_valor_sem_conta(chat_id)
                 chatguru.tag_com_proposta(chat_id)
+                alerta_extra = oferta.raw_details.get("nota_interna_extra")
+                if alerta_extra:
+                    logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
+                    chatguru.send_message(chat_id=chat_id,
+                    message_key="blank",
+                    variables={"blank": alerta_extra},
+                    force_internal=True)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             chatguru.start_flow_wait_term(chat_id)
@@ -902,8 +916,8 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
         elif oferta.status == AnalysisStatus.IDADE_INSUFICIENTE:
             idade = oferta.raw_details.get("idade")
             chatguru.send_message(chat_id=chat_id,
-            message_key="idade_insuficiente",
-            variables={"idade": idade},
+            message_key="blank",
+            variables={"blank": f"Idade do cliente {idade}, não atinge os critérios dos bancos."},
             force_internal=True)
             chatguru.tag_recusa_definitiva(chat_id)
             chatguru.finish_attendance(chat_id)

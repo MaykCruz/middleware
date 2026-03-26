@@ -71,58 +71,122 @@ class FactaCLTService:
         lista_dados = resp_dados["dados"]
         if not lista_dados:
             return {"aprovado": False, "motivo": "SEM_DADOS", "msg_tecnica": "Lista de dados vazia."}
-        
-        trabalhador = lista_dados[0]
 
-        validacao = self._validar_regras_basicas(trabalhador)
-        if not validacao["ok"]:
-            retorno = {
-                "aprovado": False,
-                "motivo": validacao["motivo"], 
-                "msg_tecnica": validacao["msg"], 
-                "dados_trabalhador": trabalhador
-            }
-            for chave, valor in validacao.items():
-                if chave not in ["ok", "motivo", "msg"]:
-                    retorno[chave] = valor
-            return retorno
-        
-        matricula = trabalhador.get("matricula")
-        if not matricula:
-            logger.warning(f"⚠️ [CLT] CPF {cpf} sem matrícula retornada na consulta de dados. Abortando.")
-            return {
-                "aprovado": False,
-                "motivo": "ERRO_TECNICO",
-                "msg_tecnica": "Matrícula funcional não localizada nos dados do trabalhador."
-            }
-        
-        margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
-        
-        resp_politica = self.adapter.validar_politica_credito(
-            cpf,
-            matricula=trabalhador.get("matricula", ""),
-            nascimento=trabalhador.get("dataNascimento"),
-            admissao=trabalhador.get("dataAdmissao")
-        )
+        ofertas_aprovadas = []
+        erros_encontrados = []
 
-        if resp_politica["status"] != "SUCESSO":   
-            return {
-                "aprovado": False,
-                "motivo": resp_politica["status"],
-                "msg_tecnica": resp_politica.get("msg_original", "Recusado pela Facta."),
-                "dados_trabalhador": trabalhador
-            }
+        for index, trabalhador in enumerate(lista_dados):
+            matricula = trabalhador.get("matricula", f"Desconhecida-{index}")
+            logger.info(f"🔄 [CLT] Avaliando Matrícula {index + 1}/{len(lista_dados)}: {matricula} para o CPF {cpf}")
+
+            validacao = self._validar_regras_basicas(trabalhador)
+            if not validacao["ok"]:
+                retorno_erro = {
+                    "aprovado": False,
+                    "motivo": validacao["motivo"], 
+                    "msg_tecnica": validacao["msg"], 
+                    "dados_trabalhador": trabalhador
+                }
+                for chave, valor in validacao.items():
+                    if chave not in ["ok", "motivo", "msg"]:
+                        retorno_erro[chave] = valor
+                
+                erros_encontrados.append(retorno_erro)
+                continue
+    
+            if not trabalhador.get("matricula"):
+                logger.warning(f"⚠️ [CLT] CPF {cpf} sem matrícula nesta posição. Pulando.")
+                erros_encontrados.append({"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Matrícula não localizada."})
+                continue
+
+            resp_politica = self.adapter.validar_politica_credito(
+                cpf,
+                matricula=trabalhador.get("matricula", ""),
+                nascimento=trabalhador.get("dataNascimento"),
+                admissao=trabalhador.get("dataAdmissao")
+            )
+
+            if resp_politica["status"] != "SUCESSO":   
+                erros_encontrados.append({
+                    "aprovado": False,
+                    "motivo": resp_politica["status"],
+                    "msg_tecnica": resp_politica.get("msg_original", "Recusado pela Facta."),
+                    "dados_trabalhador": trabalhador
+                })
+                continue
         
-        politica = resp_politica["dados"]
-        salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
+            politica = resp_politica["dados"]
+            margem = parse_valor_monetario(trabalhador.get("valorMargemDisponivel"))
+            salario = parse_valor_monetario(trabalhador.get("valorTotalVencimentos", 0))
 
-        fator_comprometimento = self._definir_fator_margem(salario)
-        parcela_calculada = margem * fator_comprometimento
-        parcela_maxima = math.floor(parcela_calculada * 100) / 100.0
+            fator_comprometimento = self._definir_fator_margem(salario)
+            parcela_calculada = margem * fator_comprometimento
+            parcela_maxima = math.floor(parcela_calculada * 100) / 100.0
 
-        logger.debug(f"💰 [CLT] Salário: {salario} | Fator: {fator_comprometimento} | Margem Líq: {margem} -> Comprometida: {parcela_maxima}")
+            logger.debug(f"💰 [CLT] Salário: {salario} | Fator: {fator_comprometimento} | Margem Líq: {margem} -> Comprometida: {parcela_maxima}")
 
-        return self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima, margem_real=margem)
+            resultado_oferta = self._encontrar_melhor_tabela(cpf, trabalhador, politica, parcela_maxima, margem_real=margem)
+
+            if resultado_oferta.get("aprovado"):
+                logger.info(f"✅ [CLT] Matrícula {matricula} APROVADA!")
+                ofertas_aprovadas.append(resultado_oferta)
+            else:
+                erros_encontrados.append(resultado_oferta)
+            
+            if ofertas_aprovadas:
+                # Pega a que libera o MAIOR valor líquido pro cliente
+                melhor_oferta = max(ofertas_aprovadas, key=lambda x: x.get("oferta", {}).get("valor_liquido", 0))
+                
+                # Filtra as outras ofertas que sobraram
+                outras_ofertas = [oferta for oferta in ofertas_aprovadas if oferta != melhor_oferta]
+            
+            if outras_ofertas:
+                # Injeta as outras ofertas dentro do dicionário da principal!
+                # Assim, o seu CLTService vai conseguir ler isso e colocar na Nota Interna
+                melhor_oferta["outras_ofertas_aprovadas"] = outras_ofertas
+                logger.info(f"🏆 [CLT] Melhor oferta R$ {melhor_oferta['oferta']['valor_liquido']}. Cliente possui {len(outras_ofertas)} outra(s) matrícula(s) aprovada(s)!")
+
+            return melhor_oferta
+        
+        else:
+            logger.info(f"❌ [CLT] Nenhuma matrícula aprovada para o CPF {cpf}.")
+            if erros_encontrados:
+                # ---------------------------------------------------------
+                # HIERARQUIA DE RECUSAS (Ordenando do "Melhor" para o "Pior")
+                # ---------------------------------------------------------
+                # Peso 1: Temporários/Transbordo (Vão para a Matriz do V8/C6 agir)
+                # Peso 2: Problemas do Cliente (Falta margem)
+                # Peso 3: Irreversíveis (CNPJ Inválido, Pessoa Física, etc)
+                
+                pesos_erros = {
+                    "REPROVADO_POLITICA_FACTA": 1,
+                    "IDADE_INSUFICIENTE_FACTA": 1,
+                    "SEM_MARGEM": 2,
+                    "EMPRESA_RECENTE": 2,      # Caso você faça a checagem no client
+                    "EMPREGADOR_CPF": 3,
+                    "CATEGORIA_CNAE_INVALIDA": 3
+                }
+
+                def obter_peso(erro):
+                    motivo = erro.get("motivo")
+                    # Se o motivo não estiver no dicionário, ganha peso 99 (joga pro final da fila)
+                    return pesos_erros.get(motivo, 99)
+
+                # Ordena a lista de erros baseada no peso. Os de peso 1 ficam no topo (índice 0).
+                erros_encontrados.sort(key=obter_peso)
+                
+                erro_prioritario = erros_encontrados[0]
+
+                outros_erros = erros_encontrados[1:]
+                if outros_erros:
+                    erro_prioritario["outros_erros"] = outros_erros
+                    
+                logger.info(f"⚖️ [CLT] Múltiplos erros. Priorizando erro com menor peso: {erro_prioritario.get('motivo')}")
+                
+                return erro_prioritario
+            
+            return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Nenhuma matrícula pôde ser processada."}
+
     
     def _definir_fator_margem(self, salario: float) -> float:
         if salario <= 5000.00:
