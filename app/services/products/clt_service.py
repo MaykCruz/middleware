@@ -230,7 +230,6 @@ class CLTService:
 
                 # Monta o relatório final de matrículas
                 texto_todas_matriculas = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_texto)
-                msg_original_facta = resultado_raw.get("msg_tecnica", "Reprovado na política.")
 
                 if sugestoes_globais:
                     titulo = f"⚠️ *Atenção: Cliente possui {len(lista_vinculos)} matrícula(s) para análise!*\n\n" if len(lista_vinculos) > 1 else ""
@@ -251,7 +250,6 @@ class CLTService:
                     texto_conflito = ""
                     chave_mensagem = "clt_recusa_definitiva"
                     variaveis_mensagem = {}
-                    mostrar_detalhes = False
                     
                     # 1º PRIORIDADE: Idade
                     if  idade_principal < 20 or idade_principal > 65:
@@ -277,6 +275,9 @@ class CLTService:
                         status_falha = AnalysisStatus.CELETISTA_RESTRICAO
                         chave_mensagem = "clt_recusa_definitiva"
                         motivos = []
+
+                        if v_margem < 50.00:
+                            motivos.append(f"❌ *Margem mínima de R$ 50,00 não atingida. (Cliente tem R$ {formatar_moeda(v_margem)}.")
                         if meses_empresa_1 < 36:
                             motivos.append(f"❌ *V8 / Mercantil:* Exigem mín. de 36 meses de empresa (Tem {meses_empresa_1}m).")
                         if idade_principal < 21 or idade_principal > 60:
