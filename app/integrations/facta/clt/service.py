@@ -140,52 +140,52 @@ class FactaCLTService:
                 # Filtra as outras ofertas que sobraram
                 outras_ofertas = [oferta for oferta in ofertas_aprovadas if oferta != melhor_oferta]
             
-            if outras_ofertas:
-                # Injeta as outras ofertas dentro do dicionário da principal!
-                # Assim, o seu CLTService vai conseguir ler isso e colocar na Nota Interna
-                melhor_oferta["outras_ofertas_aprovadas"] = outras_ofertas
-                logger.info(f"🏆 [CLT] Melhor oferta R$ {melhor_oferta['oferta']['valor_liquido']}. Cliente possui {len(outras_ofertas)} outra(s) matrícula(s) aprovada(s)!")
+                if outras_ofertas:
+                    # Injeta as outras ofertas dentro do dicionário da principal!
+                    # Assim, o seu CLTService vai conseguir ler isso e colocar na Nota Interna
+                    melhor_oferta["outras_ofertas_aprovadas"] = outras_ofertas
+                    logger.info(f"🏆 [CLT] Melhor oferta R$ {melhor_oferta['oferta']['valor_liquido']}. Cliente possui {len(outras_ofertas)} outra(s) matrícula(s) aprovada(s)!")
 
-            return melhor_oferta
+                return melhor_oferta
         
-        else:
-            logger.info(f"❌ [CLT] Nenhuma matrícula aprovada para o CPF {cpf}.")
-            if erros_encontrados:
-                # ---------------------------------------------------------
-                # HIERARQUIA DE RECUSAS (Ordenando do "Melhor" para o "Pior")
-                # ---------------------------------------------------------
-                # Peso 1: Temporários/Transbordo (Vão para a Matriz do V8/C6 agir)
-                # Peso 2: Problemas do Cliente (Falta margem)
-                # Peso 3: Irreversíveis (CNPJ Inválido, Pessoa Física, etc)
-                
-                pesos_erros = {
-                    "REPROVADO_POLITICA_FACTA": 1,
-                    "IDADE_INSUFICIENTE_FACTA": 1,
-                    "SEM_MARGEM": 2,
-                    "EMPRESA_RECENTE": 2,      # Caso você faça a checagem no client
-                    "EMPREGADOR_CPF": 3,
-                    "CATEGORIA_CNAE_INVALIDA": 3
-                }
-
-                def obter_peso(erro):
-                    motivo = erro.get("motivo")
-                    # Se o motivo não estiver no dicionário, ganha peso 99 (joga pro final da fila)
-                    return pesos_erros.get(motivo, 99)
-
-                # Ordena a lista de erros baseada no peso. Os de peso 1 ficam no topo (índice 0).
-                erros_encontrados.sort(key=obter_peso)
-                
-                erro_prioritario = erros_encontrados[0]
-
-                outros_erros = erros_encontrados[1:]
-                if outros_erros:
-                    erro_prioritario["outros_erros"] = outros_erros
+            else:
+                logger.info(f"❌ [CLT] Nenhuma matrícula aprovada para o CPF {cpf}.")
+                if erros_encontrados:
+                    # ---------------------------------------------------------
+                    # HIERARQUIA DE RECUSAS (Ordenando do "Melhor" para o "Pior")
+                    # ---------------------------------------------------------
+                    # Peso 1: Temporários/Transbordo (Vão para a Matriz do V8/C6 agir)
+                    # Peso 2: Problemas do Cliente (Falta margem)
+                    # Peso 3: Irreversíveis (CNPJ Inválido, Pessoa Física, etc)
                     
-                logger.info(f"⚖️ [CLT] Múltiplos erros. Priorizando erro com menor peso: {erro_prioritario.get('motivo')}")
+                    pesos_erros = {
+                        "REPROVADO_POLITICA_FACTA": 1,
+                        "IDADE_INSUFICIENTE_FACTA": 1,
+                        "SEM_MARGEM": 2,
+                        "EMPRESA_RECENTE": 2,      # Caso você faça a checagem no client
+                        "EMPREGADOR_CPF": 3,
+                        "CATEGORIA_CNAE_INVALIDA": 3
+                    }
+
+                    def obter_peso(erro):
+                        motivo = erro.get("motivo")
+                        # Se o motivo não estiver no dicionário, ganha peso 99 (joga pro final da fila)
+                        return pesos_erros.get(motivo, 99)
+
+                    # Ordena a lista de erros baseada no peso. Os de peso 1 ficam no topo (índice 0).
+                    erros_encontrados.sort(key=obter_peso)
+                    
+                    erro_prioritario = erros_encontrados[0]
+
+                    outros_erros = erros_encontrados[1:]
+                    if outros_erros:
+                        erro_prioritario["outros_erros"] = outros_erros
+                        
+                    logger.info(f"⚖️ [CLT] Múltiplos erros. Priorizando erro com menor peso: {erro_prioritario.get('motivo')}")
+                    
+                    return erro_prioritario
                 
-                return erro_prioritario
-            
-            return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Nenhuma matrícula pôde ser processada."}
+                return {"aprovado": False, "motivo": "ERRO_TECNICO", "msg_tecnica": "Nenhuma matrícula pôde ser processada."}
 
     
     def _definir_fator_margem(self, salario: float) -> float:
