@@ -24,8 +24,6 @@ celery_app = Celery(
     broker=BROKER_URL,
     backend=BACKEND_URL,
     include=[
-        "app.tasks.processor",
-        "app.tasks.monitor",
         "app.tasks.api_processor"
     ],
 )
@@ -47,7 +45,6 @@ celery_app.conf.update(
 
 
     task_routes={
-        "process_webhook_event": {"queue": "main-queue"},
         "app.tasks.api_processor.*": {"queue": "main-queue"}
     }
 )
