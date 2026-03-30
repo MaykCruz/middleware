@@ -247,30 +247,42 @@ class CLTService:
                     inicio_empresa_1 = dados_trab_1.get("dataInicioAtividadeEmpregador")
                     meses_casa_1 = calcular_meses(admissao_1) if admissao_1 else 0
                     meses_empresa_1 = calcular_meses(inicio_empresa_1) if inicio_empresa_1 else 0
+
+                    margem_1 = float(resultado_raw.get("margem_disponivel", 0.0))
+                    if margem_1 == 0.0 and dados_trab_1.get("valorMargemDisponivel"):
+                        margem_1 = parse_valor_monetario(dados_trab_1.get("valorMargemDisponivel"))
+                    margem_minima_1 = 150.00 if meses_casa_1 < 12 else 50.00
+
                     texto_conflito = ""
                     chave_mensagem = "clt_recusa_definitiva"
                     variaveis_mensagem = {}
+
+                    # 1º PRIORIDADE: Margem
+                    if margem_1 < margem_minima_1:
+                        status_falha = AnalysisStatus.SEM_MARGEM
+                        chave_mensagem = "sem_margem_cliente"
+                        texto_conflito = f"❌ Margem R$ {formatar_moeda(margem_1)} insuficiente. (Mínimo exigido: R$ {margem_minima_1} p/ {meses_casa_1} meses de casa)."
                     
-                    # 1º PRIORIDADE: Idade
-                    if  idade_principal < 20 or idade_principal > 65:
+                    # 2º PRIORIDADE: Idade
+                    elif  idade_principal < 20 or idade_principal > 65:
                         status_falha = AnalysisStatus.IDADE_INSUFICIENTE
                         chave_mensagem = "idade_insuficiente" 
                         variaveis_mensagem = {"idade": str(idade_principal)} 
                         texto_conflito = f"❌ *Idade* ({idade_principal} anos) fora das janelas de aprovação de todos os parceiros."
                     
-                    # 2º PRIORIDADE: Pouco tempo de carteira assinada
+                    # 3º PRIORIDADE: Pouco tempo de carteira assinada
                     elif meses_casa_1 < 3:
                         status_falha = AnalysisStatus.MENOS_SEIS_MESES
                         chave_mensagem = "menos_seis_meses" 
                         texto_conflito = f"❌ *Todos os bancos* exigem no mínimo 3 meses de carteira assinada (Cliente tem apenas {meses_casa_1} meses)."
                     
-                    # 3º PRIORIDADE: Empresa muito nova
+                    # 4º PRIORIDADE: Empresa muito nova
                     elif meses_empresa_1 < 24:
                         status_falha = AnalysisStatus.EMPRESA_RECENTE
                         chave_mensagem = "clt_recusa_definitiva"
                         texto_conflito = f"❌ *Todos os bancos* exigem no mínimo 24 meses de CNPJ ativo (Cliente tem apenas {meses_empresa_1} meses)."
                     
-                    # 4º PRIORIDADE: O "Limbo"
+                    # 5º PRIORIDADE: O "Limbo"
                     else:
                         status_falha = AnalysisStatus.CELETISTA_RESTRICAO
                         chave_mensagem = "clt_recusa_definitiva"
@@ -308,17 +320,6 @@ class CLTService:
                     raw_details=resultado_raw
                 )
             
-            if motivo == "ERRO_TERMO":
-                return CreditOffer(
-                    status=AnalysisStatus.RETORNO_DESCONHECIDO,
-                    message_key="retorno_desconhecido",
-                    is_internal=True,
-                    variables={
-                        "erro": msg_tecnica
-                    },
-                    raw_details=resultado_raw
-                )
-            
             if motivo == "CPF_NAO_ENCONTRADO_NA_BASE":
                 return CreditOffer(
                     status=AnalysisStatus.CPF_NAO_ENCONTRADO_NA_BASE,
@@ -339,71 +340,6 @@ class CLTService:
                     message_key="empregador_cpf",
                     raw_details=resultado_raw
                 )
-        
-            if motivo == "IDADE_INSUFICIENTE_FACTA":
-                idade = int(resultado_raw.get("idade", 0))
-                sexo = resultado_raw.get("sexo", "")
-                margem = float(resultado_raw.get("margem_disponivel", 0.0))
-
-                dados_trab = resultado_raw.get("dados_trabalhador", {})
-
-                admissao = resultado_raw.get("data_admissao") or dados_trab.get("dataAdmissao")
-                meses_casa = calcular_meses(admissao)
-
-                inicio_empresa = dados_trab.get("dataInicioAtividadeEmpregador")
-                meses_empresa = calcular_meses(inicio_empresa)
-
-                margem_minima_distribuir = 100.00 if meses_casa < 12 else 50.00
-
-                if margem <= margem_minima_distribuir:
-                    return CreditOffer(
-                        status=AnalysisStatus.SEM_MARGEM,
-                        message_key="sem_margem_cliente",
-                        raw_details={
-                            **resultado_raw,
-                            "msg_tecnica": f"Margem R$ {formatar_moeda(margem)} insuficiente. (Mínimo exigido: R$ {margem_minima_distribuir} p/ {meses_casa} meses de casa)."
-                        }
-                    )
-
-                sugestoes = []
-                
-                # Mercantil: 20-58 | Casa >= 12 | Empresa >= 36
-                if 20 <= idade <= 58 and meses_casa >= 12 and meses_empresa >= 36:
-                    sugestoes.append("Mercantil (20-58)")
-                
-                # Presença: 21-65 | Casa >= 3 | Empresa >= 36
-                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 36:
-                    sugestoes.append("Presença (21-65)")
-                
-                # C6 Bank: 21-60 | Casa >= 6 | Empresa >= 24
-                if 21 <= idade <= 60 and meses_casa >= 6 and meses_empresa >= 24:
-                    sugestoes.append("C6 Bank (21-60)")
-                
-                # V8: 21-65 | Casa >= 3 | Empresa >= 36
-                if 21 <= idade <= 65 and meses_casa >= 3 and meses_empresa >= 36:
-                    sugestoes.append("V8 (21-65)")
-                
-                if sugestoes:
-                    texto_sugestao = ", ".join(sugestoes)
-
-                    msg_final = (
-                        f"Cliente: {sexo}, {idade} anos\n"
-                        f"💰 Margem: R$ {formatar_moeda(margem)}\n"
-                        f"📅 Admissão: {formatar_display_tempo(admissao)}\n"
-                        f"🏦 Tente em: {texto_sugestao}"
-                    )
-
-                    return CreditOffer(
-                        status=AnalysisStatus.IDADE_INSUFICIENTE_FACTA,
-                        message_key="clt_nao_elegivel",
-                        raw_details={**resultado_raw, "sugestao_bancos": msg_final}
-                    )
-                else:
-                    return CreditOffer(
-                        status=AnalysisStatus.IDADE_INSUFICIENTE,
-                        message_key="clt_recusa_definitiva",
-                        raw_details=resultado_raw
-                    )
             
             if motivo == "SEM_MARGEM":
                 return CreditOffer(
@@ -416,13 +352,6 @@ class CLTService:
                 return CreditOffer(
                     status=AnalysisStatus.CATEGORIA_CNAE_INVALIDA,
                     message_key="clt_recusa_definitiva",
-                    raw_details=resultado_raw
-                )
-            
-            if motivo == "REPROVADO_POLITICA_FACTA":
-                return CreditOffer(
-                    status=AnalysisStatus.REPROVADO_POLITICA_FACTA,
-                    message_key="clt_nao_elegivel",
                     raw_details=resultado_raw
                 )
             
@@ -446,13 +375,6 @@ class CLTService:
                 return CreditOffer(
                     status=AnalysisStatus.MENOS_SEIS_MESES,
                     message_key="menos_seis_meses",
-                    raw_details=resultado_raw
-                )
-            
-            if motivo in ["SEM_OPERACOES", "SEM_PRAZO_COMPATIVEL"]:
-                return CreditOffer(
-                    status=AnalysisStatus.SEM_OFERTA,
-                    message_key="clt_nao_elegivel",
                     raw_details=resultado_raw
                 )
             
