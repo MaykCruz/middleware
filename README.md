@@ -1,5 +1,5 @@
-# 🤖 Huggy Middleware (Empreste Digital)
-Este projeto atual como um **Middleware de Orquestração** entre a plataforma de atendimento **Huggy** e as APIs de crédito (principalmente **Facta**).
+# 🤖 Middleware
+Este projeto atual como um **Middleware de Orquestração** entre a plataforma de atendimento  e as APIs de crédito (principalmente **Facta**).
 
 O objetivo é automatizar a triagem, simulação e qualificação de leads para crédito consignado (FGTS e CLT) se forma assíncrona, garantindo alta disponibilidade e resiliência a falhas.
 

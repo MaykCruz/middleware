@@ -1,23 +1,11 @@
 services:
-  # 1. Banco de Dados (Persistência)
-  db:
-    image: postgres:15-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_USER=huggy_user
-      - POSTGRES_PASSWORD=huggy_pass
-      - POSTGRES_DB=huggy_middleware
-    ports:
-      - "5432:5432"
-
-  # 2. Broker & Cache (Filas)
+  # 1. Broker & Cache (Filas)
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
 
-  # 3. API (FastAPI)
+  # 2. API (FastAPI)
   web:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -26,20 +14,18 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
       - redis
     env_file:
       - .env
     restart: always
 
-  # 4. Background Worker (Celery)
+  # 3. Background Worker (Celery)
   worker:
     build: .
     command: celery -A app.infrastructure.celery worker --loglevel=info -Q main-queue
     volumes:
       - .:/code
     depends_on:
-      - db
       - redis
     env_file:
       - .env

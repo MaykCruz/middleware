@@ -6,7 +6,6 @@ from app.services.bot.memory.session import SessionManager
 from app.integrations.newcorban.service import NewCorbanService
 from app.integrations.facta.complementares.funcoes_complementares import FactaDadosCadastrais
 
-
 logger = logging.getLogger(__name__)
 
 class ProposalService:
