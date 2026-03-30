@@ -133,13 +133,13 @@ class FactaCLTService:
             else:
                 erros_encontrados.append(resultado_oferta)
             
-            if ofertas_aprovadas:
-                # Pega a que libera o MAIOR valor líquido pro cliente
-                melhor_oferta = max(ofertas_aprovadas, key=lambda x: x.get("oferta", {}).get("valor_liquido", 0))
-                
-                # Filtra as outras ofertas que sobraram
-                outras_ofertas = [oferta for oferta in ofertas_aprovadas if oferta != melhor_oferta]
+        if ofertas_aprovadas:
+            # Pega a que libera o MAIOR valor líquido pro cliente
+            melhor_oferta = max(ofertas_aprovadas, key=lambda x: x.get("oferta", {}).get("valor_liquido", 0))
             
+            # Filtra as outras ofertas que sobraram
+            outras_ofertas = [oferta for oferta in ofertas_aprovadas if oferta != melhor_oferta]
+        
             if outras_ofertas:
                 # Injeta as outras ofertas dentro do dicionário da principal!
                 # Assim, o seu CLTService vai conseguir ler isso e colocar na Nota Interna
@@ -147,7 +147,7 @@ class FactaCLTService:
                 logger.info(f"🏆 [CLT] Melhor oferta R$ {melhor_oferta['oferta']['valor_liquido']}. Cliente possui {len(outras_ofertas)} outra(s) matrícula(s) aprovada(s)!")
 
             return melhor_oferta
-        
+    
         else:
             logger.info(f"❌ [CLT] Nenhuma matrícula aprovada para o CPF {cpf}.")
             if erros_encontrados:
