@@ -10,7 +10,7 @@ class SessionManager:
     def __init__(self):
         redis_url = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
         self.redis_client = redis.from_url(redis_url)
-        self.expire_time = 3600 * 24 # 24 horas
+        self.expire_time = 3600 * 24
 
     def _get_key_state(self, chat_id: str):
         return f"chat:{chat_id}:state"
@@ -40,11 +40,9 @@ class SessionManager:
         Usado quando recebemos 'closedChat'.
         """
         try:
-            # CORREÇÃO 1: Deletar State E Contexto
             key_state = self._get_key_state(chat_id)
             key_context = self._get_key_context(chat_id)
 
-            # Deleta as duas chaves
             self.redis_client.delete(key_state)
             deleted_count = self.redis_client.delete(key_context)
 
@@ -56,14 +54,11 @@ class SessionManager:
             logger.error(f"❌ Erro ao limpar sessão do chat {chat_id}: {str(e)}")
 
     def get_state(self, chat_id: int):
-        # CORREÇÃO 2: Usar _get_key_state
         key = self._get_key_state(chat_id)
         val = self.redis_client.get(key)
-        # IMPORTANTE: Decodificar de bytes para string para o 'if' do bot funcionar
         return val.decode("utf-8") if val else "START"
     
     def set_state(self, chat_id: int, state: str):
-        # CORREÇÃO 3: Usar _get_key_state
         key = self._get_key_state(chat_id)
         self.redis_client.set(key, state, ex=self.expire_time)
     
@@ -92,3 +87,35 @@ class SessionManager:
             logger.debug(f"💾Contexto atualizado para Chat {chat_id}: {new_data.keys()}")
         except Exception as e:
             logger.error(f"❌ Erro ao atualizar contexto do chat {chat_id}: {str(e)}")
+    
+    def _get_key_v8_context(self, consult_id: str):
+        """Gera a chave única baseada no ID da consulta do V8"""
+        return f"v8_context:{consult_id}"
+    
+    def save_v8_context(self, consult_id: str, data: dict):
+        """
+        Encerra a cápsula do tempo do V8.
+        Usa o mesmo expire_time (24) da classe para slimpar o Redis automaticamente.
+        """
+        try:
+            key = self._get_key_context(consult_id)
+            self.redis_client.set(key, json.dumps(data), ex=self.expire_time)
+            logger.info(f"💾 [Memória V8] Contexto salvo com sucesso para o consult_id {consult_id}")
+        except Exception as e:
+            logger.error(f"❌ [Memória V8] Erro ao salvar contexto do {consult_id}: {str(e)}")
+    
+    def get_v8_context(self, consult_id: str) -> dict:
+        """
+        Desenterra a cápsula do tempo quando o Webhook chamar.
+        """
+        try:
+            key = self._get_key_context(consult_id)
+            val = self.redis_client.get(key)
+            if val:
+                return json.loads(val)
+            
+            logger.warning(f"⚠️ [Memória V8] Nenhum contexto encontrado para {consult_id}. Expirado ou inexistente.")
+            return {}
+        except Exception as e:
+            logger.error(f"❌ [Memória V8] Erro ao recuperar contexto do {consult_id}: {str(e)}")
+            return {}

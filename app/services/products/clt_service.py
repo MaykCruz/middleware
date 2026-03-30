@@ -235,6 +235,23 @@ class CLTService:
                     titulo = f"⚠️ *Atenção: Cliente possui {len(lista_vinculos)} matrícula(s) para análise!*\n\n" if len(lista_vinculos) > 1 else ""
                     msg_final = f"{titulo}{texto_todas_matriculas}"
 
+                    if "V8 (21-65)" in sugestoes_globais:
+                        from app.integrations.v8.clt.service import V8CLTService
+                        logger.info(f"🔄 [Transbordo] V8 identificada nas sugestões de {cpf}. Iniciando processo assíncrono...")
+
+                        v8_service = V8CLTService()
+                        v8_result = v8_service.processar_nova_consulta(cpf)
+
+                        if v8_result["acao"] in ["NOVO_AGUARDANDO_WEBHOOK", "REAPROVEITADO"]:
+                            # consult_id = v8_result.get("consult_id") or v8_result.get("dados", {}).get("id")
+
+                            # contexto_v8 = {
+                            #     "chat_id": chat_id,
+                            #     "cpf": cpf,
+                            #     "margem"
+                            # }
+                            pass
+
                     return CreditOffer(
                         status=AnalysisStatus.REPROVADO_POLITICA_FACTA,
                         message_key="clt_nao_elegivel",

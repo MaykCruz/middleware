@@ -94,12 +94,8 @@ class V8CLTAdapter:
                         return True
                 except Exception:
                     pass
-        
-        except httpx.HTTPStatusError as e:
+    
             logger.error(f"❌ [V8 CLT] Falha ao autorizar termo ({e.response.status_code}): {e.response.text}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ [V8 CLT] Erro de rede ao autorizar termo {consult_id}: {str(e)}")
             return False
     
     def buscar_tabelas(self, consult_id: str) -> Optional[list]:
@@ -115,13 +111,15 @@ class V8CLTAdapter:
             logger.error(f"❌ [V8 CLT] Erro ao buscar tabelas: {str(e)}")
             return None
         
-    def simular_operacao(self, consult_id: str, table_id: str, valor_parcela: float) -> Optional[Dict[str, Any]]:
+    def simular_operacao(self, consult_id: str, table_id: str, valor_parcela: float, quantidade_maxima_parcelas: int) -> Optional[Dict[str, Any]]:
         logger.info(f"🧮 [V8 CLT] Gerando simulação (Tabela: {table_id} | Parcela: {valor_parcela})...")
         endpoint = f"{self.base_url}/private-consignment/simulation"
         payload = {
-            "consultId": consult_id,
-            "tableId": table_id,
-            "installmentValue": valor_parcela
+            "consult_id": consult_id,
+            "config_id": table_id,
+            "installment_face_value": valor_parcela,
+            "number_of_installments": quantidade_maxima_parcelas,
+            "provider": "QI"
         }
 
         try:
