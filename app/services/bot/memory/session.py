@@ -114,7 +114,7 @@ class SessionManager:
             if val:
                 return json.loads(val)
             
-            logger.warning(f"⚠️ [Memória V8] Nenhum contexto encontrado para {consult_id}. Expirado ou inexistente.")
+            logger.info(f"♻️ [Memória V8] Contexto não encontrado para {consult_id} (Já processado ou expirado).")
             return {}
         except Exception as e:
             logger.error(f"❌ [Memória V8] Erro ao recuperar contexto do {consult_id}: {str(e)}")
