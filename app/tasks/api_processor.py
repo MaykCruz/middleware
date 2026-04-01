@@ -387,6 +387,14 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                 variables=oferta.variables, 
                 force_internal=oferta.is_internal
             )
+        
+        if oferta.status == AnalysisStatus.AGUARDANDO_WEBHOOK:
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "Análise V8 em andamento. Aguardando resultado..."},
+                force_internal=True
+            )
 
         if oferta.status == AnalysisStatus.APROVADO:
             detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
