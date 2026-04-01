@@ -30,8 +30,6 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
         logger.warning(f"⚠️ [Worker V8] Contexto {consult_id} não encontrado. Possível webhook duplicado já processado.")
         return
     
-    session_manager.delete_v8_context(consult_id) # Garante idempotência
-    
     phone_id = contexto_v8.get("phone_id")
     idade = contexto_v8.get("idade", 0)
     meses_casa = contexto_v8.get("meses_casa", 0)

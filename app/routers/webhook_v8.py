@@ -34,6 +34,8 @@ async def receber_webhook_v8(request: Request):
                 logger.info(f"♻️ [Webhook V8] Requisição ignorada: Contexto já resolvido ou expirado para o consultId {consult_id}.")
                 return {"status": "ignorado", "mensagem": "Contexto não encontrado no Redis"}
             
+            session_manager.delete_v8_context(consult_id)  # Evita reprocessamento de webhooks duplicados
+            
             chat_id = contexto_v8.get("chat_id")
             logger.info(f"🚀 [Webhook V8] Contexto recuperado para o Chat {chat_id}. A despachar Task de continuação...")
 
