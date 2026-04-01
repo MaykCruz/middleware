@@ -98,7 +98,7 @@ class SessionManager:
         Usa o mesmo expire_time (24) da classe para slimpar o Redis automaticamente.
         """
         try:
-            key = self._get_key_context(consult_id)
+            key = self._get_key_v8_context(consult_id)
             self.redis_client.set(key, json.dumps(data), ex=self.expire_time)
             logger.info(f"💾 [Memória V8] Contexto salvo com sucesso para o consult_id {consult_id}")
         except Exception as e:
@@ -109,7 +109,7 @@ class SessionManager:
         Desenterra a cápsula do tempo quando o Webhook chamar.
         """
         try:
-            key = self._get_key_context(consult_id)
+            key = self._get_key_v8_context(consult_id)
             val = self.redis_client.get(key)
             if val:
                 return json.loads(val)
@@ -119,3 +119,8 @@ class SessionManager:
         except Exception as e:
             logger.error(f"❌ [Memória V8] Erro ao recuperar contexto do {consult_id}: {str(e)}")
             return {}
+    
+    def delete_v8_context(self, consult_id: str):
+        """Apaga o contexto para evitar processamento duplicado de webhooks."""
+        key = self._get_key_v8_context(consult_id)
+        self.redis_client.delete(key)

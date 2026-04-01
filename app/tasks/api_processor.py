@@ -2,6 +2,7 @@ import logging
 import httpx
 from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
+from app.services.bot.memory.session import SessionManager
 from app.integrations.facta.auth import create_client
 from app.services.products.fgts_service import FGTSService
 from app.services.products.clt_service import CLTService
@@ -9,12 +10,107 @@ from app.services.proposal_service import ProposalService
 from app.integrations.facta.proposal.client import FactaContratoAndamentoError
 from app.schemas.credit import AnalysisStatus
 from app.integrations.chatguru.service import ChatGuruService
+from app.integrations.v8.clt.service import V8CLTService
+from app.utils.formatters import formatar_moeda
 
 logger = logging.getLogger(__name__)
 
 def _safe_error_string(e: Exception) -> str:
     err_msg = str(e)
     return err_msg[:200]
+
+@celery_app.task(name="app.tasks.api_processor.continuar_fluxo_v8_chatguru", bind=True, acks_late=True, max_retries=3)
+def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: str, margem: float, max_parcelas: int, motivo_rejeicao: str = ""):
+    logger.info(f"⚙️ [Worker V8] Retomando atendimento para o Chat {chat_id} | ConsultID: {consult_id}")
+
+    session_manager = SessionManager()
+
+    contexto_v8 = session_manager.get_v8_context(consult_id)
+    if not contexto_v8:
+        logger.warning(f"⚠️ [Worker V8] Contexto {consult_id} não encontrado. Possível webhook duplicado já processado.")
+        return
+    
+    session_manager.delete_v8_context(consult_id) # Garante idempotência
+    
+    phone_id = contexto_v8.get("phone_id")
+    idade = contexto_v8.get("idade", 0)
+    meses_casa = contexto_v8.get("meses_casa", 0)
+    meses_empresa = contexto_v8.get("meses_empresa", 0)
+    texto_todas_matriculas = contexto_v8.get("texto_todas_matriculas", "")
+    qtd_vinculos = contexto_v8.get("lista_vinculos_len", 1)
+    mensagem_espera_enviada = contexto_v8.get("mensagem_espera_enviada", False)
+
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
+    v8_service = V8CLTService()
+
+    clt_service = CLTService(http_client=httpx.Client(timeout=30.0))
+    sugestoes = clt_service._gerar_sugestoes_transbordo(idade, meses_casa, meses_empresa)
+    sugestao_v8 = next((s for s in sugestoes if "V8" in s), None)
+    if sugestao_v8:
+        sugestoes.remove(sugestao_v8)
+
+    texto_conclusao_v8 = ""
+    v8_simulacao_valida = False
+
+    if status_v8 == "SUCCESS":
+        logger.info(f"🎯 [Worker V8] Dataprev Aprovou! Iniciando simulação de R$ {margem} em {max_parcelas}x...")
+        try:
+            simulacao = v8_service.gerar_simulacao_final(consult_id, margem, max_parcelas)
+
+            if simulacao.get("acao") == "SIMULACAO_CONCLUIDA":
+                dados_sim = simulacao.get("dados", {})
+                if isinstance(dados_sim, list) and len(dados_sim) > 0: 
+                    dados_sim = dados_sim[0]
+
+                valor_liberado = dados_sim.get("disbursed_issue_amount", 0.0)
+                v8_simulacao_valida = True
+                texto_conclusao_v8 = (
+                    f"\n\n🚀 *V8: APROVADO!*\n"
+                    f"• Margem Utilizada: R$ {formatar_moeda(margem)}\n"
+                    f"• Prazo: {max_parcelas}x\n"
+                    f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
+                )
+            else:
+                texto_conclusao_v8 = f"\n\n⚠️ *V8: APROVADO!* (Dataprev validou R$ {formatar_moeda(margem)}, mas falha na simulação. Tente manual)."
+        except Exception as e:
+            logger.error(f"❌ [Worker V8] Falha ao processar simulação aprovada: {str(e)}")
+            texto_conclusao_v8 = f"\n\n⚠️ *V8: APROVADO!* (Falha ao extrair parcelas)."
+    
+    elif status_v8 == "REJECTED":
+         texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Motivo: {motivo_rejeicao}"
+
+    titulo = f"⚠️ *Atenção: Cliente possui {qtd_vinculos} matrícula(s) para análise!*\n\n" if qtd_vinculos > 1 else ""
+    nota_final = f"{titulo}{texto_todas_matriculas}{texto_conclusao_v8}"
+
+    beco_sem_saida = not v8_simulacao_valida and len(sugestoes) == 0
+
+    if beco_sem_saida:
+        chatguru.send_message(
+            chat_id=chat_id,
+            message_key="clt_recusa_definitiva",
+        )
+    else:
+        if not mensagem_espera_enviada:
+            chatguru.send_message(
+                chat_id=chat_id, 
+                message_key="clt_nao_elegivel", 
+                variables={}
+            )
+
+    chatguru.send_message(
+    chat_id=chat_id, 
+    message_key="blank", 
+    variables={"blank": nota_final},
+    force_internal=True
+    )
+
+    if beco_sem_saida:
+        chatguru.tag_recusa_definitiva(chat_id)
+        chatguru.finish_attendance(chat_id)
+        logger.info(f"✅ [Worker V8] Atendimento {chat_id} encerrado (Recusa Definitiva - Beco sem saída).")
+    else:
+        chatguru.start_put_in_queue(chat_id) 
+        logger.info(f"✅ [Worker V8] Atendimento {chat_id} transferido com sucesso para a fila.")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
 def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = None, nome: str = None, celular: str = None, contact_id: str = None, verificacao_manual: bool = False):
@@ -609,3 +705,45 @@ def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
             chatguru.start_put_in_queue(chat_id)
         except Exception as final_error:
             logger.critical(f"☠️ [Fallback] Falha catastrófica ao tentar transbordo manual: {final_error}")
+
+@celery_app.task(name="app.tasks.api_processor.watchdog_v8", bind=True)
+def watchdog_v8(self, chat_id: str, consult_id: str):
+    logger.info(f"🐕 [Watchdog V8] Verificando se a consulta {consult_id} travou no limbo...")
+
+    session_manager = SessionManager()
+    contexto_v8 = session_manager.get_v8_context(consult_id)
+
+    if not contexto_v8:
+        logger.info(f"✅ [Watchdog V8] Consulta {consult_id} já resolvida. Tudo certo!")
+        return
+    
+    logger.warning(f"⚠️ [Watchdog V8] Consulta {consult_id} deu timeout! Resgatando cliente do limbo...")
+
+    pphone_id = contexto_v8.get("phone_id")
+    texto_original = contexto_v8.get("texto_bruto_watchdog", "")
+    mensagem_espera_enviada = contexto_v8.get("mensagem_espera_enviada", False)
+    qtd_vinculos = contexto_v8.get("lista_vinculos_len", 1)
+
+    chatguru = ChatGuruService(chat_id=chat_id, phone_id=pphone_id)
+    session_manager.delete_v8_context(consult_id)
+
+    if not mensagem_espera_enviada:
+        chatguru.send_message(chat_id=chat_id, message_key="clt_nao_elegivel")
+    
+    titulo = f"⚠️ *Atenção: Cliente possui {qtd_vinculos} matrícula(s) para análise!*\n\n" if qtd_vinculos > 1 else ""
+    nota_final = (
+        f"{titulo}{texto_original}\n\n"
+        "🤖 *Aviso Interno:* A API automática do V8 sofreu instabilidade e não respondeu. "
+        "O cliente foi devolvido para a fila para simulação manual."
+    )
+
+    chatguru.send_message(
+        chat_id=chat_id, 
+        message_key="blank", 
+        variables={"blank": nota_final},
+        force_internal=True
+    )
+
+    chatguru.start_put_in_queue(chat_id)
+    logger.info(f"🚨 [Watchdog V8] Cliente {chat_id} transferido para fila com sucesso.")
+

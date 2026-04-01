@@ -3,7 +3,7 @@ import redis
 from fastapi import FastAPI, Header, HTTPException, status, Depends
 from dotenv import load_dotenv
 from app.infrastructure.celery import celery_app
-from app.routers import webhook_chatguru
+from app.routers import webhook_chatguru, webhook_v8
 from app.core.logger import setup_logging
 
 load_dotenv()
@@ -12,6 +12,7 @@ setup_logging()
 app = FastAPI(title="Middleware API")
 
 app.include_router(webhook_chatguru.router)
+app.include_router(webhook_v8.router)
 
 def verify_admin_token(x_admin_token: str = Header(default=None)):
     """

@@ -16,7 +16,7 @@ class V8CLTAdapter:
 
         params = {
             "search": cpf,
-            "limit": 5,
+            "limit": 50,
             "page": 1,
             "provider": "QI"
         }
@@ -25,6 +25,8 @@ class V8CLTAdapter:
             response = self.client.get(endpoint, params=params)
             response.raise_for_status()
             dados = response.json()
+
+            logger.info(f"🐛 [DEBUG V8] Retorno bruto da busca: {dados}")
 
             registros = dados.get("data", [])
             if not registros:
@@ -100,13 +102,24 @@ class V8CLTAdapter:
     
     def buscar_tabelas(self, consult_id: str) -> Optional[list]:
         logger.info(f"📊 [V8 CLT] Buscando tabelas disponíveis para a consulta {consult_id}...")
-        endpoint = f"{self.base_url}/private-consignment/table"
+        endpoint = f"{self.base_url}/private-consignment/simulation/configs"
         params = {"consultId": consult_id}
 
         try:
             response = self.client.get(endpoint, params=params)
             response.raise_for_status()
-            return response.json().get("configs", [])
+            dados = response.json()
+            tabelas = dados.get("configs", [])
+            
+            if not tabelas:
+                logger.warning(f"⚠️ [V8 CLT] Nenhuma tabela retornada para a consulta {consult_id}.")
+                return None
+                
+            return tabelas
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [V8 CLT] Erro HTTP ao buscar tabelas ({e.response.status_code}): {e.response.text}")
+            return None
         except Exception as e:
             logger.error(f"❌ [V8 CLT] Erro ao buscar tabelas: {str(e)}")
             return None
@@ -135,4 +148,20 @@ class V8CLTAdapter:
             return None
         except Exception as e:
             logger.error(f"❌ [V8 CLT] Erro de rede ao simular operação: {str(e)}")
+            return None
+    
+    def buscar_detalhes_consulta(self, consult_id: str) -> Optional[Dict[str, Any]]:
+        logger.info(f"🔍 [V8 CLT] Buscando detalhes completos da consulta ID {consult_id}...")
+        endpoint = f"{self.base_url}/private-consignment/consult/{consult_id}"
+
+        try:
+            response = self.client.get(endpoint)
+            response.raise_for_status()
+            return response.json()
+        
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [V8 CLT] Erro HTTP ao buscar detalhes ({e.response.status_code}): {e.response.text}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ [V8 CLT] Erro inesperado ao buscar detalhes para {consult_id}: {str(e)}")
             return None

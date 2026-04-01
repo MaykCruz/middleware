@@ -1,7 +1,9 @@
 import logging
 import httpx
+from celery import current_app
 from datetime import datetime
 from app.integrations.facta.clt.service import FactaCLTService
+from app.integrations.v8.clt.service import V8CLTService
 from app.services.bank_account_service import BankAccountService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
@@ -18,6 +20,7 @@ class CLTService:
         self.facta_service = FactaCLTService(http_client)
         self.bank_service = BankAccountService(http_client)
         self.session_manager = SessionManager()
+        self.v8_service = V8CLTService()
 
     def _gerar_sugestoes_transbordo(self, idade: int, meses_casa: int, meses_empresa: int) -> list:
         sugestoes = []
@@ -167,18 +170,20 @@ class CLTService:
                     )
                 
                 lista_vinculos = [resultado_raw] + resultado_raw.get("outros_erros", [])
-                blocos_texto = []
+
+                dados_para_relatorio = []
                 sugestoes_globais = set()
                 
                 idade_principal = 0
                 sexo_principal = "Não informado"
+                meses_casa_principal = 0
+                meses_empresa_principal = 0
                 
                 for i, vinculo in enumerate(lista_vinculos, 1):
                     dados_trab = vinculo.get("dados_trabalhador", {})
                     if not dados_trab:
                         continue
                     
-                    # Extração de Idade e Sexo da Matrícula
                     idade_v = int(vinculo.get("idade", 0))
                     if idade_v == 0 and dados_trab.get("dataNascimento"):
                         nasc = datetime.strptime(dados_trab.get("dataNascimento"), "%d/%m/%Y")
@@ -188,69 +193,152 @@ class CLTService:
                     if sexo_v == "Não informado" and dados_trab.get("sexo_codigo"):
                         sexo_v = "F" if str(dados_trab.get("sexo_codigo")) == "3" else "M"
                     
-                    if i == 1:
-                        idade_principal = idade_v
-                        sexo_principal = sexo_v
-                        
-                    # Extração de Tempos e Margem
                     v_admissao = vinculo.get("data_admissao") or dados_trab.get("dataAdmissao")
                     v_inicio_empresa = dados_trab.get("dataInicioAtividadeEmpregador")
-                    
+
                     v_margem = float(vinculo.get("margem_disponivel", 0.0))
                     if v_margem == 0.0 and dados_trab.get("valorMargemDisponivel"):
                         v_margem = parse_valor_monetario(dados_trab.get("valorMargemDisponivel"))
 
                     v_meses_casa = calcular_meses(v_admissao) if v_admissao else 0
                     v_meses_empresa = calcular_meses(v_inicio_empresa) if v_inicio_empresa else 0
+
+                    if i == 1:
+                        idade_principal = idade_v
+                        sexo_principal = sexo_v
+                        meses_casa_principal = v_meses_casa
+                        meses_empresa_principal = v_meses_empresa
                     
-                    # Bloqueio de margem para transbordo
                     margem_minima_distribuir = 150.00 if v_meses_casa < 12 else 50.00
                     
                     if v_margem < margem_minima_distribuir:
-                        # Se não tem margem, não gera sugestão para esta matrícula
                         v_sugestoes = []
                         msg_erro_v = f"Margem R$ {formatar_moeda(v_margem)} insuficiente."
                     else:
                         v_sugestoes = self._gerar_sugestoes_transbordo(idade_v, v_meses_casa, v_meses_empresa)
                         msg_erro_v = vinculo.get("msg_tecnica", vinculo.get("motivo", "Reprovado na política"))
-                    
+            
                     sugestoes_globais.update(v_sugestoes)
-                    texto_sugestao = ", ".join(v_sugestoes) if v_sugestoes else "Nenhuma (Incompatível)"
-                    
-                    # Formata o bloco desta matrícula
+
+                    dados_para_relatorio.append({
+                        "index": i,
+                        "margem": v_margem,
+                        "admissao": v_admissao,
+                        "empresa": v_inicio_empresa,
+                        "erro": msg_erro_v,
+                        "sugestoes_locais": v_sugestoes
+                    })
+                
+                sugestoes_visuais = set(sugestoes_globais)
+                sugestao_v8_str = next((s for s in sugestoes_globais if "V8" in s), None)
+
+                blocos_brutos = []
+                for d in dados_para_relatorio:
+                    sugs = d["sugestoes_locais"]
+                    txt_sug = ", ".join(sugs) if sugs else "Nenhuma (Incompatível)"
+                    blocos_brutos.append(
+                        f"{d['erro']}\n"
+                        f"📊 *Dados para análise matrícula {d['index']}*\n"
+                        f"• Margem: R$ {formatar_moeda(d['margem'])}\n"
+                        f"• Admissão: {formatar_display_tempo(d['admissao'])}\n"
+                        f"• Empresa: {formatar_display_tempo(d['empresa'])}\n"
+                        f"🎯 *Bancos Recomendados:* {txt_sug}"
+                    )
+                texto_bruto_watchdog = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_brutos)
+
+                if sugestao_v8_str:
+                    sugestoes_visuais.remove(sugestao_v8_str)
+                
+                blocos_texto = []
+                for d in dados_para_relatorio:
+                    sug_limpas = [s for s in d["sugestoes_locais"] if s in sugestoes_visuais]
+                    texto_sugestao = ", ".join(sug_limpas) if sug_limpas else "Nenhuma (Incompatível)"
+
                     bloco = (
-                        f"{msg_erro_v}\n"
-                        f"📊 *Dados para análise matrícula {i}*\n"
-                        f"• Margem: R$ {formatar_moeda(v_margem)}\n"
-                        f"• Admissão: {formatar_display_tempo(v_admissao)}\n"
-                        f"• Empresa: {formatar_display_tempo(v_inicio_empresa)}\n"
+                        f"{d['erro']}\n"
+                        f"📊 *Dados para análise matrícula {d['index']}*\n"
+                        f"• Margem: R$ {formatar_moeda(d['margem'])}\n"
+                        f"• Admissão: {formatar_display_tempo(d['admissao'])}\n"
+                        f"• Empresa: {formatar_display_tempo(d['empresa'])}\n"
                         f"🎯 *Bancos Recomendados:* {texto_sugestao}"
                     )
                     blocos_texto.append(bloco)
 
-                # Monta o relatório final de matrículas
-                texto_todas_matriculas = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_texto)
+                    texto_todas_matriculas = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_texto)
 
-                if sugestoes_globais:
+                    outros_bancos = [s for s in sugestoes_globais if "V8" not in s]
+                    tem_outros_bancos = len(outros_bancos) > 0
+
+                    texto_conclusao_v8 = ""
+                    acao_v8 = None
+                    v8_simulacao_valida = False
+
+                    if next((s for s in sugestoes_globais if "V8" in s), None):
+                        logger.info(f"⚡ [CLT Service] V8 sugerido no panorama global. A iniciar validação via API...")
+                        resultado_v8 = self.v8_service.processar_nova_consulta(cpf)
+                        acao_v8 = resultado_v8.get("acao")
+
+                        if acao_v8 == AnalysisStatus.AGUARDANDO_WEBHOOK:
+                            consult_id = resultado_v8.get("consult_id")
+                            logger.info(f"⏳ [CLT Service] V8 em processamento. A guardar contexto (ID: {consult_id}).")
+
+                            contexto_principal = self.session_manager.get_context(chat_id)
+                            phone_id = contexto_principal.get("phone_id")
+
+                            self.session_manager.save_v8_context(consult_id, {
+                                "chat_id": chat_id, "phone_id": phone_id, "cpf": cpf, "nome": nome, "celular": celular,
+                                "idade": idade_principal, "meses_casa": meses_casa_principal, "meses_empresa": meses_empresa_principal,
+                                "texto_todas_matriculas": texto_todas_matriculas, "texto_bruto_watchdog": texto_bruto_watchdog, "lista_vinculados_len": len(lista_vinculos), "mensagem_espera_enviada": tem_outros_bancos
+                            })
+
+                            current_app.send_task(
+                                "app.tasks.api_processor.watchdog_v8",
+                                kwargs={"chat_id": chat_id, "consult_id": consult_id},
+                                countdown=900 
+                            )
+
+                            chave_msg_espera = "clt_nao_elegivel" if tem_outros_bancos else "blank"
+                            variaveis_msg = {} if tem_outros_bancos else {"blank": "⏳ Análise V8 em andamento. Aguardando resultado..."}
+
+                            return CreditOffer(
+                                status=AnalysisStatus.AGUARDANDO_WEBHOOK,
+                                message_key=chave_msg_espera,
+                                variables=variaveis_msg,
+                                is_internal=not tem_outros_bancos,
+                                raw_details=resultado_raw
+                            )
+                    
+                        elif acao_v8 == AnalysisStatus.APROVADO:
+                            consult_id = resultado_v8.get("consult_id")
+                            margem_v8 = resultado_v8.get("margem")
+                            parcelas_v8 = resultado_v8.get("max_parcelas")
+
+                            logger.info(f"⚡ [CLT Service] Triagem V8 aprovada. A iniciar simulação (R$ {margem_v8} em {parcelas_v8}x)...")
+
+                            simulacao = self.v8_service.gerar_simulacao_final(consult_id, margem_v8, parcelas_v8)
+
+                            if simulacao.get("acao") == "SIMULACAO_CONCLUIDA":
+                                dados_sim = simulacao.get("dados", {})
+                                if isinstance(dados_sim, list) and len(dados_sim) > 0:
+                                    dados_sim = dados_sim[0]
+                                valor_liberado = dados_sim.get("disbursed_issue_amount")
+                                v8_simulacao_valida = True
+                                texto_conclusao_v8 = (
+                                    f"\n\n🚀 *V8: APROVADO!*\n"
+                                    f"• Margem Utilizada: R$ {formatar_moeda(margem_v8)}\n"
+                                    f"• Prazo: {parcelas_v8}x\n"
+                                    f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
+                                )
+                            else:
+                                texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
+                    
+                        elif acao_v8 == AnalysisStatus.REPROVADO_POLITICA_V8:
+                            motivo = resultado_v8.get("motivo")
+                            texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Motivo: {motivo}"
+
+                if tem_outros_bancos or v8_simulacao_valida:
                     titulo = f"⚠️ *Atenção: Cliente possui {len(lista_vinculos)} matrícula(s) para análise!*\n\n" if len(lista_vinculos) > 1 else ""
-                    msg_final = f"{titulo}{texto_todas_matriculas}"
-
-                    if "V8 (21-65)" in sugestoes_globais:
-                        from app.integrations.v8.clt.service import V8CLTService
-                        logger.info(f"🔄 [Transbordo] V8 identificada nas sugestões de {cpf}. Iniciando processo assíncrono...")
-
-                        v8_service = V8CLTService()
-                        v8_result = v8_service.processar_nova_consulta(cpf)
-
-                        if v8_result["acao"] in ["NOVO_AGUARDANDO_WEBHOOK", "REAPROVEITADO"]:
-                            # consult_id = v8_result.get("consult_id") or v8_result.get("dados", {}).get("id")
-
-                            # contexto_v8 = {
-                            #     "chat_id": chat_id,
-                            #     "cpf": cpf,
-                            #     "margem"
-                            # }
-                            pass
+                    msg_final = f"{titulo}{texto_todas_matriculas}{texto_conclusao_v8}"
 
                     return CreditOffer(
                         status=AnalysisStatus.REPROVADO_POLITICA_FACTA,
@@ -305,7 +393,7 @@ class CLTService:
                         chave_mensagem = "clt_recusa_definitiva"
                         motivos = []
 
-                        if v_margem < 50.00:
+                        if margem_1 < 50.00:
                             motivos.append(f"❌ *Margem mínima de R$ 50,00 não atingida. (Cliente tem R$ {formatar_moeda(v_margem)}.")
                         if meses_empresa_1 < 36:
                             motivos.append(f"❌ *V8 / Mercantil:* Exigem mín. de 36 meses de empresa (Tem {meses_empresa_1}m).")
@@ -317,7 +405,7 @@ class CLTService:
                     # Anexa o super relatório mesmo se deu recusa total!
                     resultado_raw["msg_tecnica"] = (
                         f"⚠️ *Análise de Restrição Cruzada*\n"
-                        f"{texto_todas_matriculas}\n\n"
+                        f"{texto_todas_matriculas}{texto_conclusao_v8}\n\n"
                         f"🔍 *Motivo da recusa global:*\n"
                         f"{texto_conflito}"
                     )
