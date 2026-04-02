@@ -140,7 +140,7 @@ class V8CLTAdapter:
             response.raise_for_status()
             simulacao = response.json()
 
-            logger.info(f"✅ [V8 CLT] Simulação gerada com sucesso! ID Simulação: {simulacao.get('id')}")
+            logger.info(f"✅ [V8 CLT] Simulação gerada com sucesso! ID Simulação: {simulacao.get('id_simulation')}")
             return simulacao
 
         except httpx.HTTPStatusError as e:

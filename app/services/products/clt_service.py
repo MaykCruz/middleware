@@ -335,6 +335,19 @@ class CLTService:
                     elif acao_v8 == AnalysisStatus.REPROVADO_POLITICA_V8:
                         motivo = resultado_v8.get("motivo")
                         texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Motivo: {motivo}"
+                    
+                    elif acao_v8 == AnalysisStatus.ERRO_TECNICO:
+                        logger.warning(f"⚠️ [CLT Service] V8 instável. Protegendo cliente de recusa indevida.")
+                        texto_conclusao_v8 = f"\n\n⚠️ *V8: API INSTÁVEL!* (Falha de comunicação com o banco. Tente simular manualmente no portal)."
+
+                        if not tem_outros_bancos:
+                            return CreditOffer(
+                                status=AnalysisStatus.ERRO_TECNICO,
+                                message_key="retorno_desconhecido",
+                                is_internal=True,
+                                variables={"erro": f"{texto_todas_matriculas}{texto_conclusao_v8}"},
+                                raw_details=resultado_raw
+                            )
 
                 if tem_outros_bancos or v8_simulacao_valida:
                     titulo = f"⚠️ *Atenção: Cliente possui {len(lista_vinculos)} matrícula(s) para análise!*\n\n" if len(lista_vinculos) > 1 else ""
