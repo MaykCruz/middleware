@@ -1,4 +1,5 @@
 import logging
+from app.core.logger import chat_id_var
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
@@ -38,6 +39,8 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
     contexto_atual = payload.bot_context.Contexto
 
     chat_id = payload.celular
+
+    chat_id_var.set(chat_id)
 
     if not contexto_atual:
         logger.info(f"📥 [ChatGuru] Webhook recebido (Chat {chat_id}), mas ignorado (Sem contexto).")

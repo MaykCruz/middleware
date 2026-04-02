@@ -1,5 +1,6 @@
 import logging
 import httpx
+from app.core.logger import chat_id_var
 from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
 from app.services.bot.memory.session import SessionManager
@@ -21,6 +22,9 @@ def _safe_error_string(e: Exception) -> str:
 
 @celery_app.task(name="app.tasks.api_processor.continuar_fluxo_v8_chatguru", bind=True, acks_late=True, max_retries=3)
 def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: str, margem: float, max_parcelas: int, motivo_rejeicao: str = "", contexto_v8: dict = None):
+
+    chat_id_var.set(chat_id)
+
     logger.info(f"⚙️ [Worker V8] Retomando atendimento para o Chat {chat_id} | ConsultID: {consult_id}")
 
     if not contexto_v8:
@@ -113,6 +117,8 @@ def executar_fluxo_fgts_chatguru(self, chat_id: str, cpf: str, phone_id: str = N
     Executa a lógica de FGTS e responde via CHATGURU.
     Agora com suporte a Retry Inteligente.
     """
+    chat_id_var.set(chat_id)
+
     MAX_RETRIES = 10
     COUNTDOWN=30
 
@@ -286,6 +292,8 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
     """
     Executa a lógica pesada de CLT e responde via CHATGURU.
     """
+    chat_id_var.set(chat_id)
+
     MAX_RETRIES = 10
     COUNTDOWN = 30
 
@@ -585,6 +593,7 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str, phone_id: str = None):
     Task responsável por efetivar a proposta na Facta (Digitação).
     Acionada quando o cliente confirma a contratação.
     """
+    chat_id_var.set(chat_id)
     logger.info(f"✍️ [Worker ChatGuru] Iniciando Digitação FGTS para Chat {chat_id}")
 
     facta_http_client = create_client()
@@ -644,6 +653,7 @@ def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
     """
     Task responsável por efetivar a proposta na Facta (Digitação) - CLT.
     """
+    chat_id_var.set(chat_id)
     logger.info(f"✍️ [Worker ChatGuru] Iniciando Digitação CLT para Chat {chat_id}")
 
     facta_http_client = create_client()
@@ -711,6 +721,7 @@ def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
 
 @celery_app.task(name="app.tasks.api_processor.watchdog_v8", bind=True)
 def watchdog_v8(self, chat_id: str, consult_id: str):
+    chat_id_var.set(chat_id)
     logger.info(f"🐕 [Watchdog V8] Verificando se a consulta {consult_id} travou no limbo...")
 
     session_manager = SessionManager()

@@ -1,4 +1,5 @@
 import logging
+from app.core.logger import chat_id_var
 from fastapi import APIRouter, Request
 from app.infrastructure.celery import celery_app
 from app.services.bot.memory.session import SessionManager
@@ -37,7 +38,8 @@ async def receber_webhook_v8(request: Request):
             session_manager.delete_v8_context(consult_id)  # Evita reprocessamento de webhooks duplicados
             
             chat_id = contexto_v8.get("chat_id")
-            logger.info(f"🚀 [Webhook V8] Contexto recuperado para o Chat {chat_id}. A despachar Task de continuação...")
+            chat_id_var.set(chat_id)
+            logger.info(f"🚀 [Webhook V8] Contexto recuperado. A despachar Task de continuação...")
 
             motivo_rejeicao = payload.get("description") or "Reprovado na política da API (Dataprev)"
             margem_liberada = 0.0

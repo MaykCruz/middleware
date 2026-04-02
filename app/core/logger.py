@@ -1,7 +1,17 @@
 import logging
 import os
 import sys
+import contextvars
 from logtail import LogtailHandler
+
+chat_id_var = contextvars.ContextVar("chat_id", default=None)
+
+class ChatIDFilter(logging.Filter):
+    def filter(self, record):
+        chat_id = chat_id_var.get()
+        if chat_id and not str(record.msg).startswith(f"[ChatID: {chat_id}]"):
+            record.msg = f"[ChatID: {chat_id}] {record.msg}"
+        return True
 
 def setup_logging():
     """
@@ -20,6 +30,8 @@ def setup_logging():
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
+
+    console_handler.addFilter(ChatIDFilter())
     root_logger.addHandler(console_handler)
 
     token = os.getenv("BETTER_STACK_SOURCE_TOKEN")
@@ -33,6 +45,8 @@ def setup_logging():
                 handler = LogtailHandler(source_token=token)
 
             handler.setFormatter(log_formatter)
+            
+            handler.addFilter(ChatIDFilter())
             root_logger.addHandler(handler)
             logging.info("🚀 [System] Better Stack Logging conectado com sucesso.")
         except Exception as e:
