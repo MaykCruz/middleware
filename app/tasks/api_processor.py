@@ -20,12 +20,9 @@ def _safe_error_string(e: Exception) -> str:
     return err_msg[:200]
 
 @celery_app.task(name="app.tasks.api_processor.continuar_fluxo_v8_chatguru", bind=True, acks_late=True, max_retries=3)
-def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: str, margem: float, max_parcelas: int, motivo_rejeicao: str = ""):
+def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: str, margem: float, max_parcelas: int, motivo_rejeicao: str = "", contexto_v8: dict = None):
     logger.info(f"⚙️ [Worker V8] Retomando atendimento para o Chat {chat_id} | ConsultID: {consult_id}")
 
-    session_manager = SessionManager()
-
-    contexto_v8 = session_manager.get_v8_context(consult_id)
     if not contexto_v8:
         logger.warning(f"⚠️ [Worker V8] Contexto {consult_id} não encontrado. Possível webhook duplicado já processado.")
         return

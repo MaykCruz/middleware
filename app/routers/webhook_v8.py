@@ -56,7 +56,8 @@ async def receber_webhook_v8(request: Request):
                     "status_v8": status,
                     "margem": margem_liberada,
                     "max_parcelas": max_parcelas,
-                    "motivo_rejeicao": motivo_rejeicao
+                    "motivo_rejeicao": motivo_rejeicao,
+                    "contexto_v8": contexto_v8
                 }
             )
             
