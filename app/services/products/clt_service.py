@@ -264,77 +264,77 @@ class CLTService:
                     )
                     blocos_texto.append(bloco)
 
-                    texto_todas_matriculas = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_texto)
+                texto_todas_matriculas = f"👤 *Cliente:* {idade_principal} anos ({sexo_principal})\n\n" + "\n\n".join(blocos_texto)
 
-                    outros_bancos = [s for s in sugestoes_globais if "V8" not in s]
-                    tem_outros_bancos = len(outros_bancos) > 0
+                outros_bancos = [s for s in sugestoes_globais if "V8" not in s]
+                tem_outros_bancos = len(outros_bancos) > 0
 
-                    texto_conclusao_v8 = ""
-                    acao_v8 = None
-                    v8_simulacao_valida = False
+                texto_conclusao_v8 = ""
+                acao_v8 = None
+                v8_simulacao_valida = False
 
-                    if next((s for s in sugestoes_globais if "V8" in s), None):
-                        logger.info(f"⚡ [CLT Service] V8 sugerido no panorama global. A iniciar validação via API...")
-                        resultado_v8 = self.v8_service.processar_nova_consulta(cpf)
-                        acao_v8 = resultado_v8.get("acao")
+                if next((s for s in sugestoes_globais if "V8" in s), None):
+                    logger.info(f"⚡ [CLT Service] V8 sugerido no panorama global. A iniciar validação via API...")
+                    resultado_v8 = self.v8_service.processar_nova_consulta(cpf)
+                    acao_v8 = resultado_v8.get("acao")
 
-                        if acao_v8 == AnalysisStatus.AGUARDANDO_WEBHOOK:
-                            consult_id = resultado_v8.get("consult_id")
-                            logger.info(f"⏳ [CLT Service] V8 em processamento. A guardar contexto (ID: {consult_id}).")
+                    if acao_v8 == AnalysisStatus.AGUARDANDO_WEBHOOK:
+                        consult_id = resultado_v8.get("consult_id")
+                        logger.info(f"⏳ [CLT Service] V8 em processamento. A guardar contexto (ID: {consult_id}).")
 
-                            contexto_principal = self.session_manager.get_context(chat_id)
-                            phone_id = contexto_principal.get("phone_id")
+                        contexto_principal = self.session_manager.get_context(chat_id)
+                        phone_id = contexto_principal.get("phone_id")
 
-                            self.session_manager.save_v8_context(consult_id, {
-                                "chat_id": chat_id, "phone_id": phone_id, "cpf": cpf, "nome": nome, "celular": celular,
-                                "idade": idade_principal, "meses_casa": meses_casa_principal, "meses_empresa": meses_empresa_principal,
-                                "texto_todas_matriculas": texto_todas_matriculas, "texto_bruto_watchdog": texto_bruto_watchdog, "lista_vinculados_len": len(lista_vinculos), "mensagem_espera_enviada": tem_outros_bancos
-                            })
+                        self.session_manager.save_v8_context(consult_id, {
+                            "chat_id": chat_id, "phone_id": phone_id, "cpf": cpf, "nome": nome, "celular": celular,
+                            "idade": idade_principal, "meses_casa": meses_casa_principal, "meses_empresa": meses_empresa_principal,
+                            "texto_todas_matriculas": texto_todas_matriculas, "texto_bruto_watchdog": texto_bruto_watchdog, "lista_vinculados_len": len(lista_vinculos), "mensagem_espera_enviada": tem_outros_bancos
+                        })
 
-                            current_app.send_task(
-                                "app.tasks.api_processor.watchdog_v8",
-                                kwargs={"chat_id": chat_id, "consult_id": consult_id},
-                                countdown=900 
+                        current_app.send_task(
+                            "app.tasks.api_processor.watchdog_v8",
+                            kwargs={"chat_id": chat_id, "consult_id": consult_id},
+                            countdown=900 
+                        )
+
+                        chave_msg_espera = "clt_nao_elegivel" if tem_outros_bancos else "blank"
+                        variaveis_msg = {} if tem_outros_bancos else {"blank": "⏳ Análise V8 em andamento. Aguardando resultado..."}
+
+                        return CreditOffer(
+                            status=AnalysisStatus.AGUARDANDO_WEBHOOK,
+                            message_key=chave_msg_espera,
+                            variables=variaveis_msg,
+                            is_internal=not tem_outros_bancos,
+                            raw_details=resultado_raw
+                        )
+                
+                    elif acao_v8 == AnalysisStatus.APROVADO:
+                        consult_id = resultado_v8.get("consult_id")
+                        margem_v8 = resultado_v8.get("margem")
+                        parcelas_v8 = resultado_v8.get("max_parcelas")
+
+                        logger.info(f"⚡ [CLT Service] Triagem V8 aprovada. A iniciar simulação (R$ {margem_v8} em {parcelas_v8}x)...")
+
+                        simulacao = self.v8_service.gerar_simulacao_final(consult_id, margem_v8, parcelas_v8)
+
+                        if simulacao.get("acao") == "SIMULACAO_CONCLUIDA":
+                            dados_sim = simulacao.get("dados", {})
+                            if isinstance(dados_sim, list) and len(dados_sim) > 0:
+                                dados_sim = dados_sim[0]
+                            valor_liberado = dados_sim.get("disbursed_issue_amount")
+                            v8_simulacao_valida = True
+                            texto_conclusao_v8 = (
+                                f"\n\n🚀 *V8: APROVADO!*\n"
+                                f"• Margem Utilizada: R$ {formatar_moeda(margem_v8)}\n"
+                                f"• Prazo: {parcelas_v8}x\n"
+                                f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
                             )
-
-                            chave_msg_espera = "clt_nao_elegivel" if tem_outros_bancos else "blank"
-                            variaveis_msg = {} if tem_outros_bancos else {"blank": "⏳ Análise V8 em andamento. Aguardando resultado..."}
-
-                            return CreditOffer(
-                                status=AnalysisStatus.AGUARDANDO_WEBHOOK,
-                                message_key=chave_msg_espera,
-                                variables=variaveis_msg,
-                                is_internal=not tem_outros_bancos,
-                                raw_details=resultado_raw
-                            )
-                    
-                        elif acao_v8 == AnalysisStatus.APROVADO:
-                            consult_id = resultado_v8.get("consult_id")
-                            margem_v8 = resultado_v8.get("margem")
-                            parcelas_v8 = resultado_v8.get("max_parcelas")
-
-                            logger.info(f"⚡ [CLT Service] Triagem V8 aprovada. A iniciar simulação (R$ {margem_v8} em {parcelas_v8}x)...")
-
-                            simulacao = self.v8_service.gerar_simulacao_final(consult_id, margem_v8, parcelas_v8)
-
-                            if simulacao.get("acao") == "SIMULACAO_CONCLUIDA":
-                                dados_sim = simulacao.get("dados", {})
-                                if isinstance(dados_sim, list) and len(dados_sim) > 0:
-                                    dados_sim = dados_sim[0]
-                                valor_liberado = dados_sim.get("disbursed_issue_amount")
-                                v8_simulacao_valida = True
-                                texto_conclusao_v8 = (
-                                    f"\n\n🚀 *V8: APROVADO!*\n"
-                                    f"• Margem Utilizada: R$ {formatar_moeda(margem_v8)}\n"
-                                    f"• Prazo: {parcelas_v8}x\n"
-                                    f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
-                                )
-                            else:
-                                texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
-                    
-                        elif acao_v8 == AnalysisStatus.REPROVADO_POLITICA_V8:
-                            motivo = resultado_v8.get("motivo")
-                            texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Motivo: {motivo}"
+                        else:
+                            texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
+                
+                    elif acao_v8 == AnalysisStatus.REPROVADO_POLITICA_V8:
+                        motivo = resultado_v8.get("motivo")
+                        texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Motivo: {motivo}"
 
                 if tem_outros_bancos or v8_simulacao_valida:
                     titulo = f"⚠️ *Atenção: Cliente possui {len(lista_vinculos)} matrícula(s) para análise!*\n\n" if len(lista_vinculos) > 1 else ""
