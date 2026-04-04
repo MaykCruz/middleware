@@ -12,6 +12,7 @@ router = APIRouter(prefix="/webhook/v8", tags=["Webhook V8"])
 async def receber_webhook_v8(request: Request):
     try:
         payload = await request.json()
+        logger.info(f"📦 [DEBUG WEBHOOK V8] Payload Completo Recebido: {payload}")
     except Exception as e:
         logger.error(f"❌ [Webhook V8] Erro ao processar JSON: {str(e)}")
         return {"status": "erro", "mensagem": "JSON inválido"}

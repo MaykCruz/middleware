@@ -135,6 +135,8 @@ class V8CLTAdapter:
             "provider": "QI"
         }
 
+        logger.info(f"📡 [DEBUG V8 CLT] Enviando payload de simulação: {payload}")
+
         try:
             response = self.client.post(endpoint, json=payload)
             response.raise_for_status()
@@ -144,7 +146,10 @@ class V8CLTAdapter:
             return simulacao
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"❌ [V8 CLT] Erro HTTP ao simular operação ({e.response.status_code}): {e.response.text}")
+            logger.error(
+                f"❌ [DEBUG V8 CLT] Erro HTTP {e.response.status_code} ao simular.\n"
+                f"Corpo (Raw) retornado pela V8: {e.response.text}"
+            )
             return None
         except Exception as e:
             logger.error(f"❌ [V8 CLT] Erro de rede ao simular operação: {str(e)}")

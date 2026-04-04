@@ -90,8 +90,18 @@ class V8Auth:
             "client_id": self.client_id
         }
 
+        logger.info(
+            f"🔍 [DEBUG V8 AUTH] Preparando request para {url}\n"
+            f"Payload Raw (com repr para ver sujeiras): \n"
+            f"Username: {repr(self.username)}\n"
+            f"Password: {repr(self.password)}\n"
+            f"ClientID: {repr(self.client_id)}"
+        )
+
         try:
             client = create_v8_client()
+
+            logger.info(f"🔍 [DEBUG V8 AUTH] Headers do Client: {client.headers}")
 
             response = client.post(url, data=payload)
             response.raise_for_status()
@@ -107,7 +117,12 @@ class V8Auth:
             return token, expires_in
         
         except httpx.HTTPStatusError as e:
-            logger.error(f"❌ [V8] Erro HTTP {e.response.status_code}: {e.response.text}")
+            logger.error(
+                f"❌ [DEBUG V8 AUTH] A API rejeitou a requisição!\n"
+                f"Status: {e.response.status_code}\n"
+                f"Headers da Resposta: {dict(e.response.headers)}\n"
+                f"Corpo (Raw): {e.response.text}"
+            )
             raise e
         except Exception as e:
             logger.error(f"❌ [V8] Erro de Conexão: {str(e)}")
