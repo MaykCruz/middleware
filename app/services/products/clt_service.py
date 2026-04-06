@@ -336,6 +336,7 @@ class CLTService:
                                 f"• Prazo: {parcelas_v8}x\n"
                                 f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
                             )
+                            resultado_raw["v8_approval"] = True
                         else:
                             texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
                 

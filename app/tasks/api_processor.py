@@ -110,6 +110,7 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
     else:
         if v8_simulacao_valida:
             chatguru.start_auto_distribution(chat_id)
+            chatguru.tag_com_proposta(chat_id)
             logger.info(f"🚀 [Worker V8] Cliente {chat_id} tem valor aprovado na V8! Enviando para distribuição automática.")
         else:
             chatguru.start_put_in_queue(chat_id)
@@ -521,8 +522,14 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             message_key="blank",
             variables={"blank": msg_tecnica},
             force_internal=True)
-            chatguru.start_put_in_queue(chat_id)
-            chatguru.move_to_simular_outros_bancos(chat_id)
+            if_v8_approved = oferta.raw_details.get("v8_approval", False)
+            if if_v8_approved:
+                logger.info(f"🚀 [Worker V8] Cliente {chat_id} tem valor aprovado na V8! Enviando para distribuição automática.")
+                chatguru.start_auto_distribution(chat_id)
+                chatguru.tag_com_proposta(chat_id)
+            else:
+                chatguru.start_put_in_queue(chat_id)
+                chatguru.move_to_simular_outros_bancos(chat_id)
         
         elif oferta.status == AnalysisStatus.LIMITE_CONTRATOS:
             msg_tecnica = oferta.raw_details.get("msg_tecnica")
