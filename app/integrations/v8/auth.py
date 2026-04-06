@@ -101,9 +101,13 @@ class V8Auth:
         try:
             client = create_v8_client()
 
-            logger.info(f"🔍 [DEBUG V8 AUTH] Headers do Client: {client.headers}")
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
 
-            response = client.post(url, data=payload)
+            logger.info(f"🔍 [DEBUG V8 AUTH] Headers do Client: {client.headers}")
+    
+            response = client.post(url, data=payload, headers=headers)
             response.raise_for_status()
 
             data = response.json()
