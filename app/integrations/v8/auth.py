@@ -90,7 +90,7 @@ class V8Auth:
             "client_id": self.client_id
         }
 
-        logger.info(
+        logger.debug(
             f"🔍 [DEBUG V8 AUTH] Preparando request para {url}\n"
             f"Payload Raw (com repr para ver sujeiras): \n"
             f"Username: {repr(self.username)}\n"
@@ -105,7 +105,7 @@ class V8Auth:
                 "Content-Type": "application/x-www-form-urlencoded"
             }
 
-            logger.info(f"🔍 [DEBUG V8 AUTH] Headers do Client: {client.headers}")
+            logger.debug(f"🔍 [DEBUG V8 AUTH] Headers do Client: {client.headers}")
     
             response = client.post(url, data=payload, headers=headers)
             response.raise_for_status()
