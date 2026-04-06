@@ -159,12 +159,22 @@ class FactaCLTService:
                 # Peso 3: Irreversíveis (CNPJ Inválido, Pessoa Física, etc)
                 
                 pesos_erros = {
+                    # PESO 1 - Gatilhos de Transbordo (Vão para a V8/C6)
+                    "SEM_OPERACOES": 1,         
+                    "SEM_PRAZO_COMPATIVEL": 1,  
                     "REPROVADO_POLITICA_FACTA": 1,
                     "IDADE_INSUFICIENTE_FACTA": 1,
+                    
+                    # PESO 2 - Problemas estruturais da oportunidade
                     "SEM_MARGEM": 2,
-                    "EMPRESA_RECENTE": 2,      # Caso você faça a checagem no client
+                    "EMPRESA_RECENTE": 2,      
+                    
+                    # PESO 3 - Erros fatais e irreversíveis
                     "EMPREGADOR_CPF": 3,
-                    "CATEGORIA_CNAE_INVALIDA": 3
+                    "CATEGORIA_CNAE_INVALIDA": 3,
+                    
+                    # PESO 10 - Vínculos inativos/desligados (Fim da fila)
+                    "NAO_ELEGIVEL": 10          
                 }
 
                 def obter_peso(erro):
