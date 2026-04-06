@@ -94,20 +94,31 @@ class V8CLTService:
         
         com_seguro = next((t for t in tabelas if t.get("is_insured")), None)
         if com_seguro:
-            logger.info(f"🛡️ [V8 Service] Selecionando tabela com seguro: {com_seguro.get('slug')}")
-            return com_seguro.get("id")
+            return com_seguro
         
-        logger.info(f"ℹ️ [V8 Service] Selecionando tabela padrão: {tabelas[0].get('slug')}")
-        return tabelas[0].get("id")
+        return tabelas[0]
     
     def gerar_simulacao_final(self, consult_id: str, valor_parcela: float, parcelas: int) -> Dict[str, Any]:
         adapter = self._get_adapter()
-        table_id = self.obter_melhor_tabela(consult_id)
+        tabela = self.obter_melhor_tabela(consult_id)
 
-        if not table_id:
+        if not tabela:
             logger.error(f"❌ [V8 Service] Nenhuma tabela encontrada para simular a consulta {consult_id}.")
             return {"acao": "ERRO_TABELAS", "dados": None}
         
+        table_id = tabela.get("id")
+        prazos_aceitos = tabela.get("number_of_installments", [])
+        prazos_int = sorted([int(p) for p in prazos_aceitos])
+
+        if prazos_int:
+            max_permitido = max(prazos_int)
+            if parcelas > max_permitido:
+                logger.warning(f"⚠️ [V8 Service] Ajustando parcelas de {parcelas} para {max_permitido} (Limite da Tabela)")
+                parcelas = max_permitido
+            elif str(parcelas) not in [str(p) for p in prazos_aceitos]:
+                parcelas = max([p for p in prazos_int if p <= parcelas])
+                logger.info(f"ℹ️ [V8 Service] Ajustando para prazo aproximado: {parcelas}x")
+
         simulacao = adapter.simular_operacao(consult_id, table_id, valor_parcela, parcelas)
 
         if not simulacao:
