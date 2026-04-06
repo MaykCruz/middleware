@@ -108,7 +108,8 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
         chatguru.finish_attendance(chat_id)
         logger.info(f"✅ [Worker V8] Atendimento {chat_id} encerrado (Recusa Definitiva - Beco sem saída).")
     else:
-        chatguru.start_put_in_queue(chat_id) 
+        chatguru.start_put_in_queue(chat_id)
+        chatguru.move_to_simular_outros_bancos(chat_id)
         logger.info(f"✅ [Worker V8] Atendimento {chat_id} transferido com sucesso para a fila.")
 
 @celery_app.task(name="app.tasks.api_processor.executar_fluxo_fgts_chatguru", bind=True, acks_late=True, autoretry_for=(httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError), retry_backoff=True, max_retries=3, retry_jitter=True)
