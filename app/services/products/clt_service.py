@@ -211,7 +211,14 @@ class CLTService:
                     
                     margem_minima_distribuir = 150.00 if v_meses_casa < 12 else 50.00
                     
-                    if v_margem < margem_minima_distribuir:
+                    motivo_vinculo = vinculo.get("motivo")
+                    erros_fatais = ["NAO_ELEGIVEL", "EMPREGADOR_CPF", "CATEGORIA_CNAE_INVALIDA"]
+
+                    if motivo_vinculo in erros_fatais:
+                        v_sugestoes = []
+                        msg_erro_v = vinculo.get("msg_tecnica", "Vínculo inválido ou inativo na Dataprev.")
+
+                    elif v_margem < margem_minima_distribuir:
                         v_sugestoes = []
                         msg_erro_v = f"Margem R$ {formatar_moeda(v_margem)} insuficiente."
                     else:
