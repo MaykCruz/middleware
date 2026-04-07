@@ -36,7 +36,7 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
     meses_casa = contexto_v8.get("meses_casa", 0)
     meses_empresa = contexto_v8.get("meses_empresa", 0)
     texto_todas_matriculas = contexto_v8.get("texto_todas_matriculas", "")
-    qtd_vinculos = contexto_v8.get("lista_vinculos_len", 1)
+    qtd_vinculos = contexto_v8.get("lista_vinculados_len", 1)
     mensagem_espera_enviada = contexto_v8.get("mensagem_espera_enviada", False)
 
     chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
@@ -783,7 +783,7 @@ def watchdog_v8(self, chat_id: str, consult_id: str):
     pphone_id = contexto_v8.get("phone_id")
     texto_original = contexto_v8.get("texto_bruto_watchdog", "")
     mensagem_espera_enviada = contexto_v8.get("mensagem_espera_enviada", False)
-    qtd_vinculos = contexto_v8.get("lista_vinculos_len", 1)
+    qtd_vinculos = contexto_v8.get("lista_vinculados_len", 1)
 
     chatguru = ChatGuruService(chat_id=chat_id, phone_id=pphone_id)
     session_manager.delete_v8_context(consult_id)
