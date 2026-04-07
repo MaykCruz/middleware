@@ -406,42 +406,65 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             )
 
         if oferta.status == AnalysisStatus.APROVADO:
-            detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
-            dados_bancarios = detalhes.get("dados_bancarios")
+            is_v8_stp = oferta.raw_details.get("v8_approval", False)
 
-            if isinstance(dados_bancarios, dict) and dados_bancarios:
-                logger.info(f"🎯 [Worker ChatGuru CLT] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
+            if is_v8_stp:
+                logger.info(f"🎯 [Worker ChatGuru CLT] Cliente {cpf} aprovado EXCLUSIVO no V8. Enviando proposta e roteando VIP.")
+                detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
+                dados_bancarios = detalhes.get("dados_bancarios")
 
-                chatguru.preparar_mensagem_dialogo(
-                    message_key=oferta.message_key,
-                    variables=oferta.variables
-                )
-
-                chatguru.start_flow_com_margem_conta(chat_id)
-                chatguru.tag_com_proposta(chat_id)
-                alerta_extra = oferta.raw_details.get("nota_interna_extra")
-                if alerta_extra:
-                    logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
-                    chatguru.send_message(chat_id=chat_id,
-                    message_key="blank",
-                    variables={"blank": alerta_extra},
-                    force_internal=True)
-
+                if isinstance(dados_bancarios, dict) and dados_bancarios:
+                    chatguru.preparar_mensagem_dialogo(
+                        message_key=oferta.message_key,
+                        variables=oferta.variables
+                    )
+                    chatguru.start_flow_com_margem_conta(chat_id)
+                    chatguru.tag_com_proposta(chat_id)
+                else:
+                    chatguru.preparar_mensagem_dialogo(
+                        message_key=oferta.message_key,
+                        variables=oferta.variables
+                    )
+                    chatguru.start_flow_com_valor_sem_conta(chat_id)
+                    chatguru.tag_com_proposta(chat_id)
+            
             else:
-                logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
-                chatguru.preparar_mensagem_dialogo(
-                    message_key=oferta.message_key,
-                    variables=oferta.variables
-                )
-                chatguru.start_flow_com_valor_sem_conta(chat_id)
-                chatguru.tag_com_proposta(chat_id)
-                alerta_extra = oferta.raw_details.get("nota_interna_extra")
-                if alerta_extra:
-                    logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
-                    chatguru.send_message(chat_id=chat_id,
-                    message_key="blank",
-                    variables={"blank": alerta_extra},
-                    force_internal=True)
+                detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
+                dados_bancarios = detalhes.get("dados_bancarios")
+
+                if isinstance(dados_bancarios, dict) and dados_bancarios:
+                    logger.info(f"🎯 [Worker ChatGuru CLT] Cliente {cpf} já possui conta. Disparando Fluxo de Auto-Contratação.")
+
+                    chatguru.preparar_mensagem_dialogo(
+                        message_key=oferta.message_key,
+                        variables=oferta.variables
+                    )
+
+                    chatguru.start_flow_com_margem_conta_digitacao(chat_id)
+                    chatguru.tag_com_proposta(chat_id)
+                    alerta_extra = oferta.raw_details.get("nota_interna_extra")
+                    if alerta_extra:
+                        logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
+                        chatguru.send_message(chat_id=chat_id,
+                        message_key="blank",
+                        variables={"blank": alerta_extra},
+                        force_internal=True)
+
+                else:
+                    logger.info(f"⚠️ [Worker ChatGuru CLT] Cliente {cpf} aprovado mas sem dados bancários completos. Seguindo fluxo padrão.")
+                    chatguru.preparar_mensagem_dialogo(
+                        message_key=oferta.message_key,
+                        variables=oferta.variables
+                    )
+                    chatguru.start_flow_com_valor_sem_conta(chat_id)
+                    chatguru.tag_com_proposta(chat_id)
+                    alerta_extra = oferta.raw_details.get("nota_interna_extra")
+                    if alerta_extra:
+                        logger.info(f"💡 [Worker ChatGuru CLT] Múltiplas matrículas detectadas. Enviando alerta interno para {chat_id}")
+                        chatguru.send_message(chat_id=chat_id,
+                        message_key="blank",
+                        variables={"blank": alerta_extra},
+                        force_internal=True)
         
         elif oferta.status == AnalysisStatus.AGUARDANDO_AUTORIZACAO:
             chatguru.start_flow_wait_term(chat_id)

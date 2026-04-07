@@ -178,6 +178,15 @@ class ChatGuruService:
         if self.chat_number:
             return self.client.execute_dialog(self.chat_number, DIALOG_ID_TRANSFERIR_MARIA_LUIZA)
     
+    def start_flow_com_margem_conta_digitacao(self, chat_number: str):
+        """
+        Executa o diálogo de com margem conta.
+        """
+        DIALOG_ID_COM_MARGEM_CONTA_DIGITACAO = os.getenv("CHATGURU_DIALOG_COM_MARGEM_CONTA_DIGITACAO")
+        logger.info(f"📵 [ChatGuru API] Com saldo conta CLT! Executando o diálogo no Chat {chat_number}.")
+        if self.chat_number:
+            return self.client.execute_dialog(self.chat_number, DIALOG_ID_COM_MARGEM_CONTA_DIGITACAO)
+
     def start_flow_com_margem_conta(self, chat_number: str):
         """
         Executa o diálogo de com margem conta.

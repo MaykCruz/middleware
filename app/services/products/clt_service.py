@@ -337,6 +337,42 @@ class CLTService:
                                 f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
                             )
                             resultado_raw["v8_approval"] = True
+
+                            if not tem_outros_bancos:
+                                logger.info(f"🚀 [CLT Service] Cliente exclusivo V8. Retornando APROVADO para fluxo clt_com_proposta.")
+
+                                info_conta = self.bank_service.buscar_melhor_conta(cpf)
+                                mes_desconto = obter_mes_inicio_desconto()
+
+                                if info_conta:
+                                    resultado_raw["dados_bancarios"] = info_conta["raw"]
+                                    chave_msg_v8 = "clt_oferta_disponivel_conta"
+                                    variaveis_v8 = {
+                                        "valor": formatar_moeda(valor_liberado),
+                                        "parcela": formatar_moeda(margem_v8),
+                                        "prazo": str(parcelas_v8),
+                                        "mes_desconto": mes_desconto,
+                                        "dados_bancarios": info_conta["texto_formatado"]
+                                    }
+                                else:
+                                    chave_msg_v8 = "clt_oferta_disponivel"
+                                    variaveis_v8 = {
+                                        "valor": formatar_moeda(valor_liberado),
+                                        "parcela": formatar_moeda(margem_v8),
+                                        "prazo": str(parcelas_v8),
+                                        "mes_desconto": mes_desconto
+                                    }
+                                
+                                return CreditOffer(
+                                    status=AnalysisStatus.APROVADO,
+                                    message_key=chave_msg_v8,
+                                    variables=variaveis_v8,
+                                    banco_origem="V8",
+                                    raw_details=resultado_raw
+                                )
+                            else:
+                                logger.info(f"⚖️ [CLT Service] V8 Aprovado, mas há outros bancos. Seguindo para transbordo VIP.")
+                                pass
                         else:
                             texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
                 
@@ -346,7 +382,7 @@ class CLTService:
                     
                     elif acao_v8 == AnalysisStatus.ERRO_TECNICO:
                         logger.warning(f"⚠️ [CLT Service] V8 instável. Protegendo cliente de recusa indevida.")
-                        texto_conclusao_v8 = f"\n\n⚠️ *V8: API INSTÁVEL!* (Falha de comunicação com o banco. Tente simular manualmente no portal)."
+                        texto_conclusao_v8 = f"\n\n⚠️ *V8: API INSTÁVEL!* (Falha de comunicação com o banco. Tente simular manualmente no banco)."
 
                         if not tem_outros_bancos:
                             return CreditOffer(
