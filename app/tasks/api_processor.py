@@ -420,6 +420,12 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                     )
                     chatguru.start_flow_com_margem_conta(chat_id)
                     chatguru.tag_com_proposta(chat_id)
+                    chatguru.send_message(
+                        chat_id=chat_id,
+                        message_key="blank",
+                        variables={"blank": "Proposta V8!"},
+                        force_internal=True
+                    )
                 else:
                     chatguru.preparar_mensagem_dialogo(
                         message_key=oferta.message_key,
@@ -427,6 +433,12 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
                     )
                     chatguru.start_flow_com_valor_sem_conta(chat_id)
                     chatguru.tag_com_proposta(chat_id)
+                    chatguru.send_message(
+                        chat_id=chat_id,
+                        message_key="blank",
+                        variables={"blank": "Proposta V8!"},
+                        force_internal=True
+                    )
             
             else:
                 detalhes = oferta.raw_details.get("detalhes") or oferta.raw_details
