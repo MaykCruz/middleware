@@ -85,43 +85,67 @@ class V8CLTService:
                 "consult_id": consult_id
             }
     
-    def obter_melhor_tabela(self, consult_id: str) -> Optional[str]:
+    def gerar_simulacao_final(self, consult_id: str, valor_parcela: float, parcelas: int) -> Dict[str, Any]:
         adapter = self._get_adapter()
         tabelas = adapter.buscar_tabelas(consult_id)
 
         if not tabelas:
-            return None
-        
-        com_seguro = next((t for t in tabelas if t.get("is_insured")), None)
-        if com_seguro:
-            return com_seguro
-        
-        return tabelas[0]
-    
-    def gerar_simulacao_final(self, consult_id: str, valor_parcela: float, parcelas: int) -> Dict[str, Any]:
-        adapter = self._get_adapter()
-        tabela = self.obter_melhor_tabela(consult_id)
-
-        if not tabela:
             logger.error(f"❌ [V8 Service] Nenhuma tabela encontrada para simular a consulta {consult_id}.")
             return {"acao": "ERRO_TABELAS", "dados": None}
         
-        table_id = tabela.get("id")
-        prazos_aceitos = tabela.get("number_of_installments", [])
-        prazos_int = sorted([int(p) for p in prazos_aceitos])
+        tabela_com_seguro = next((t for t in tabelas if t.get("is_insured")), None)
+        tabela_sem_seguro = next((t for t in tabelas if not t.get("is_insured")), None)
 
-        if prazos_int:
-            max_permitido = max(prazos_int)
-            if parcelas > max_permitido:
-                logger.warning(f"⚠️ [V8 Service] Ajustando parcelas de {parcelas} para {max_permitido} (Limite da Tabela)")
-                parcelas = max_permitido
-            elif str(parcelas) not in [str(p) for p in prazos_aceitos]:
-                parcelas = max([p for p in prazos_int if p <= parcelas])
-                logger.info(f"ℹ️ [V8 Service] Ajustando para prazo aproximado: {parcelas}x")
+        fila_tabelas = []
+        if tabela_com_seguro:
+            fila_tabelas.append(tabela_com_seguro)
+        if tabela_sem_seguro:
+            fila_tabelas.append(tabela_sem_seguro)
+        
+        if not fila_tabelas:
+            fila_tabelas = tabelas
+        
+        simulacao = None
 
-        simulacao = adapter.simular_operacao(consult_id, table_id, valor_parcela, parcelas)
+        for tabela in fila_tabelas:
+            table_id = tabela.get("id")
+            nome_tabela = tabela.get("slug", table_id)
+            prazos_aceitos = tabela.get("number_of_installments", [])
+
+            parcelas_tentativa = parcelas
+            prazos_int = sorted([int(p) for p in prazos_aceitos])
+
+            if prazos_int:
+                max_permitido = max(prazos_int)
+                if parcelas_tentativa > max_permitido:
+                    parcelas_tentativa = max_permitido
+                elif str(parcelas_tentativa) not in [str(p) for p in prazos_aceitos]:
+                    parcelas_tentativa = max([p for p in prazos_int if p <= parcelas_tentativa])
+            
+            logger.info(f"🔄 [V8 Service] Tentando simulação. Tabela: {nome_tabela} | Prazo: {parcelas_tentativa}x")
+
+            resultado = adapter.simular_operacao(consult_id, table_id, valor_parcela, parcelas_tentativa)
+
+            if isinstance(resultado, dict) and resultado.get("is_error"):
+                tipo_erro = resultado.get("payload", {}).get("type")
+
+                if tipo_erro == "provider_does_not_have_insurance_active":
+                    logger.warning(f"⚠️ [V8 Service] Provedor não aceita seguro na tabela {nome_tabela}. Iniciando fallback para próxima...")
+                    continue
+                else:
+                    logger.error(f"❌ [V8 Service] Erro impeditivo da API: '{tipo_erro}'. Abortando fallback.")
+                    break
+            elif not resultado:
+                logger.warning(f"⚠️ [V8 Service] Falha na comunicação ao tentar tabela {nome_tabela}.")
+                break
+
+            else:
+                logger.info(f"🎉 [V8 Service] Simulação bem sucedida na tabela {nome_tabela}!")
+                simulacao = resultado
+                break
 
         if not simulacao:
+            logger.error(f"❌ [V8 Service] Todas as tentativas de tabela falharam para {consult_id}.")
             return {"acao": "ERRO_SIMULACAO", "dados": None}
             
         logger.info(f"🎉 [V8 Service] Simulação finalizada com sucesso para {consult_id}!")
