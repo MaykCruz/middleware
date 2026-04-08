@@ -10,9 +10,10 @@ from app.services.products.clt_service import CLTService
 from app.services.proposal_service import ProposalService
 from app.integrations.facta.proposal.client import FactaContratoAndamentoError
 from app.schemas.credit import AnalysisStatus
+from app.services.bank_account_service import BankAccountService
 from app.integrations.chatguru.service import ChatGuruService
 from app.integrations.v8.clt.service import V8CLTService
-from app.utils.formatters import formatar_moeda
+from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
         return
     
     phone_id = contexto_v8.get("phone_id")
+    cpf = contexto_v8.get("cpf")
     idade = contexto_v8.get("idade", 0)
     meses_casa = contexto_v8.get("meses_casa", 0)
     meses_empresa = contexto_v8.get("meses_empresa", 0)
@@ -42,7 +44,10 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
     chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
     v8_service = V8CLTService()
 
-    clt_service = CLTService(http_client=httpx.Client(timeout=30.0))
+    http_client = httpx.Client(timeout=30.0)
+    clt_service = CLTService(http_client=http_client)
+    bank_service = BankAccountService(http_client=http_client)
+
     sugestoes = clt_service._gerar_sugestoes_transbordo(idade, meses_casa, meses_empresa)
     sugestao_v8 = next((s for s in sugestoes if "V8" in s), None)
     if sugestao_v8:
@@ -50,6 +55,11 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
 
     texto_conclusao_v8 = ""
     v8_simulacao_valida = False
+
+    is_stp_v8 = False
+    v8_has_account = False
+    mensagem_stp_key = None
+    variaveis_stp = {}
 
     if status_v8 == "SUCCESS":
         logger.info(f"🎯 [Worker V8] Dataprev Aprovou! Iniciando simulação de R$ {margem} em {max_parcelas}x...")
@@ -69,6 +79,32 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
                     f"• Prazo: {max_parcelas}x\n"
                     f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
                 )
+
+                is_stp_v8 = (len(sugestoes) == 0)
+                if is_stp_v8:
+                    logger.info(f"🚀 [Worker V8] Retorno Assíncrono: Cliente exclusivo V8. Preparando STP.")
+                    info_conta = bank_service.buscar_melhor_conta(cpf)
+                    mes_desconto = obter_mes_inicio_desconto()
+
+                    if info_conta:
+                        v8_has_account = True
+                        mensagem_stp_key = "clt_oferta_disponivel_conta"
+                        variaveis_stp = {
+                            "valor": formatar_moeda(valor_liberado),
+                            "parcela": formatar_moeda(margem),
+                            "prazo": str(max_parcelas),
+                            "mes_desconto": mes_desconto,
+                            "dados_bancarios": info_conta["texto_formatado"]
+                        }
+                    else:
+                        mensagem_stp_key = "clt_oferta_disponivel"
+                        variaveis_stp = {
+                            "valor": formatar_moeda(valor_liberado),
+                            "parcela": formatar_moeda(margem),
+                            "prazo": str(max_parcelas),
+                            "mes_desconto": mes_desconto
+                        }
+
             else:
                 texto_conclusao_v8 = f"\n\n⚠️ *V8: APROVADO!* (Dataprev validou R$ {formatar_moeda(margem)}, mas falha na simulação. Tente manual)."
         except Exception as e:
@@ -87,6 +123,10 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
         chatguru.send_message(
             chat_id=chat_id,
             message_key="clt_recusa_definitiva",
+        )
+    elif v8_simulacao_valida and is_stp_v8:
+        chatguru.preparar_mensagem_dialogo(
+            message_key=mensagem_stp_key, variables=variaveis_stp
         )
     else:
         if not mensagem_espera_enviada:
@@ -109,9 +149,18 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
         logger.info(f"✅ [Worker V8] Atendimento {chat_id} encerrado (Recusa Definitiva - Beco sem saída).")
     else:
         if v8_simulacao_valida:
-            chatguru.start_auto_distribution(chat_id)
             chatguru.tag_com_proposta(chat_id)
-            logger.info(f"🚀 [Worker V8] Cliente {chat_id} tem valor aprovado na V8! Enviando para distribuição automática.")
+
+            if is_stp_v8:
+                if v8_has_account:
+                    logger.info(f"🚀 [Worker V8] Cliente {chat_id} (STP V8 COM CONTA). Iniciando esteira automatizada.")
+                    chatguru.start_flow_com_margem_conta(chat_id)
+                else:
+                    logger.info(f"🚀 [Worker V8] Cliente {chat_id} (STP V8 SEM CONTA). Iniciando esteira genérica.")
+                    chatguru.start_flow_com_valor_sem_conta(chat_id)
+            else:
+                logger.info(f"🚀 [Worker V8] Cliente {chat_id} tem valor aprovado na V8! Enviando para distribuição automática.")
+                chatguru.start_auto_distribution(chat_id)
         else:
             chatguru.start_put_in_queue(chat_id)
             chatguru.move_to_simular_outros_bancos(chat_id)
