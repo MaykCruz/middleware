@@ -276,7 +276,8 @@ class FactaCLTService:
     
     def _encontrar_melhor_tabela(self, cpf, trab, politica, parcela_max, margem_real: float = 0.0) -> dict:
         nasc = trab.get("dataNascimento")
-        resp = self.adapter.buscar_operacoes(cpf, nasc, valor_parcela=parcela_max)
+        matricula = trab.get("matricula")
+        resp = self.adapter.buscar_operacoes(cpf, nasc, matricula, valor_parcela=parcela_max)
 
         oferta_encontrada = None
         motivo_falha = "SEM_OPERACOES"
@@ -361,7 +362,8 @@ class FactaCLTService:
         }
     
     def _recalcular_por_valor(self, cpf, nasc, prazo, valor_teto, trab):
-        resp = self.adapter.buscar_operacoes(cpf, nasc, valor_solicitado=valor_teto)
+        matricula = trab.get("matricula")
+        resp = self.adapter.buscar_operacoes(cpf, nasc, matricula, valor_solicitado=valor_teto)
         msg_erro = str(resp.get("msg_original", "")).lower()
 
         if "nenhuma tabela" in msg_erro:

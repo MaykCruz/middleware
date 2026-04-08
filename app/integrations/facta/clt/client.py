@@ -164,7 +164,7 @@ class FactaCLTAdapter:
         except Exception as e:
             return {"status": "ERRO_TECNICO", "msg_original": str(e)}
     
-    def buscar_operacoes(self, cpf: str, nascimento: str, valor_parcela: float = None, valor_solicitado = None) -> dict:
+    def buscar_operacoes(self, cpf: str, nascimento: str, matricula: str, valor_parcela: float = None, valor_solicitado = None) -> dict:
         """
         Simula as tabelas disponívels (Opção 1: Por Valor, Opção 2: Por Parcela)
         """
@@ -177,6 +177,7 @@ class FactaCLTAdapter:
             "convenio": self.CONVENIO,
             "cpf": cpf,
             "data_nascimento": nascimento,
+            "matricula": matricula,
             "valor_renda": self.RENDA_PADRAO
         }
 
