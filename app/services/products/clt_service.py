@@ -329,11 +329,14 @@ class CLTService:
                             if isinstance(dados_sim, list) and len(dados_sim) > 0:
                                 dados_sim = dados_sim[0]
                             valor_liberado = dados_sim.get("disbursed_issue_amount")
+                            prazo_real = dados_sim.get("number_of_installments")
+                            margem_real = dados_sim.get("installment_value")
+
                             v8_simulacao_valida = True
                             texto_conclusao_v8 = (
                                 f"\n\n🚀 *V8: APROVADO!*\n"
-                                f"• Margem Utilizada: R$ {formatar_moeda(margem_v8)}\n"
-                                f"• Prazo: {parcelas_v8}x\n"
+                                f"• Margem Utilizada: R$ {formatar_moeda(margem_real)}\n"
+                                f"• Prazo: {prazo_real}x\n"
                                 f"• Valor Líquido Liberado: R$ {formatar_moeda(valor_liberado)}"
                             )
                             resultado_raw["v8_approval"] = True
