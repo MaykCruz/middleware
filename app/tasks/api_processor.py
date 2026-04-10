@@ -108,6 +108,10 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
                             "prazo": str(max_parcelas),
                             "mes_desconto": mes_desconto
                         }
+            elif simulacao.get("acao") == "SIMULACAO_BLOQUEADA":
+                detalhe_erro = simulacao.get("mensagem", "Operação em andamento")
+                texto_conclusao_v8 = f"\n\n🚫 *V8: BLOQUEADO!*\nMotivo: {detalhe_erro}"
+                logger.warning(f"🚫 [CLT Service] V8 bloqueado para {consult_id}: {detalhe_erro}")
 
             else:
                 texto_conclusao_v8 = f"\n\n⚠️ *V8: APROVADO!* (Dataprev validou R$ {formatar_moeda(margem)}, mas falha na simulação. Tente manual)."

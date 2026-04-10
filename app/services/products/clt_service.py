@@ -376,8 +376,15 @@ class CLTService:
                             else:
                                 logger.info(f"⚖️ [CLT Service] V8 Aprovado, mas há outros bancos. Seguindo para transbordo VIP.")
                                 pass
+                        
+                        elif simulacao.get("acao") == "SIMULACAO_BLOQUEADA":
+                            detalhe_erro = simulacao.get("mensagem", "Operação em andamento")
+                            texto_conclusao_v8 = f"\n\n🚫 *V8: BLOQUEADO!*\nMotivo: {detalhe_erro}"
+                            logger.warning(f"🚫 [CLT Service] V8 bloqueado para {consult_id}: {detalhe_erro}")
+
                         else:
-                            texto_conclusao_v8 = f"\n\n❌ *V8: REPROVADO!* Elegível na Dataprev, mas reprovado na simulação (possível valor mínimo não atingido)."
+                            texto_conclusao_v8 = f"\n\n❌ *V8: FALHA!* (Erro ao simular tabelas: {simulacao.get('mensagem')})"
+                            logger.error(f"❌ [CLT Service] Falha na simulação final V8.")
                 
                     elif acao_v8 == AnalysisStatus.REPROVADO_POLITICA_V8:
                         motivo = resultado_v8.get("motivo")
