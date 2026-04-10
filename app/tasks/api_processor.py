@@ -1,6 +1,10 @@
 import logging
 import httpx
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from app.infrastructure.database import supabase_client
 from app.core.logger import chat_id_var
+from app.core.vendedores import EQUIPE_VENDAS
 from celery.exceptions import MaxRetriesExceededError, Retry
 from app.infrastructure.celery import celery_app
 from app.services.bot.memory.session import SessionManager
@@ -857,3 +861,69 @@ def watchdog_v8(self, chat_id: str, consult_id: str):
     chatguru.start_put_in_queue(chat_id)
     logger.info(f"🚨 [Watchdog V8] Cliente {chat_id} transferido para fila com sucesso.")
 
+@celery_app.task(name="app.tasks.api_processor.varredor_agendamentos")
+def varredor_agendamentos():
+    if not supabase_client:
+        logger.error("❌ [Varredor] Cliente Supabase não inicializado.")
+        return "Erro Supabase"
+    
+    fuso_br = ZoneInfo("America/Sao_Paulo")
+    agora_iso = datetime.now(fuso_br).replace(tzinfo=None).isoformat()
+
+    try:
+        resposta = supabase_client.table("agendamentos") \
+            .select("*") \
+            .eq("status", "PENDENTE") \
+            .lte("data_agendada", agora_iso) \
+            .execute()
+        
+        pendentes = resposta.data
+
+        if not pendentes:
+            return "Sem agendamentos pendentes"
+        
+        logger.info(f"🧹 [Varredor] Encontrados {len(pendentes)} agendamentos prontos para execução.")
+
+        for agendamento in pendentes:
+            chat_id = agendamento["chat_id"]
+            atendente_email = agendamento["atendente"]
+            db_id = agendamento["id"]
+            motivo = agendamento.get("motivo", "")
+
+            chatguru = ChatGuruService(chat_id=chat_id, phone_id=agendamento.get("phone_id"))
+
+            perfil_vendedor = EQUIPE_VENDAS.get(atendente_email, {})
+            dialogo_id = perfil_vendedor.get("id_dialogo_agendamento")
+            nome_vendedor = perfil_vendedor.get("nome", atendente_email)
+
+            if dialogo_id:
+                chatguru.execute_dialog(chat_number=chat_id, dialog_id=dialogo_id)
+
+                msg_log = (
+                    f"🔔 *Aviso de Agendamento!*\n\n"
+                    f"👤 Atendente: {nome_vendedor}\n"
+                    f"📌 *Motivo:* {motivo}\n\n"
+                )
+                chatguru.send_message(
+                    chat_id=chat_id,
+                    message_key="blank",
+                    variables={"blank": msg_log},
+                    force_internal=True
+                )
+                supabase_client.table("agendamentos").update({"status": "CONCLUIDO"}).eq("id", db_id).execute()
+                logger.info(f"✅ [Varredor] Agendamento {db_id} CONCLUIDO para o chat {chat_id}.")
+            
+            else:
+                logger.warning(f"⚠️ [Varredor] Sem diálogo mapeado para {atendente_email} (Chat: {chat_id})")
+                msg_erro = f"🚨 *Atenção {nome_vendedor}*: Seu agendamento disparou, mas faltou configurar seu ID de Diálogo no sistema!"
+                chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": msg_erro}, force_internal=True)
+                chatguru.start_put_in_queue(chat_id)
+                
+                # Marca como falha para não ficar travando a fila
+                supabase_client.table("agendamentos").update({"status": "FALHA_SEM_DIALOGO"}).eq("id", db_id).execute()
+
+        return f"{len(pendentes)} processados"
+
+    except Exception as e:
+        logger.error(f"❌ [Varredor] Falha ao varrer banco de dados: {e}")
+        return "Falha na execução"

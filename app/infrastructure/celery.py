@@ -1,5 +1,6 @@
 import os
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import setup_logging, worker_process_init
 from dotenv import load_dotenv
 from app.core.logger import setup_logging as configure_custom_logging
@@ -30,6 +31,8 @@ celery_app = Celery(
 
 # --- Configurações de Robustez ---
 celery_app.conf.update(
+    timezone='America/Sao_Paulo',
+    enable_utc=False,
     task_track_started=True,
     result_expires=3600,          # Resultados expiram após 1 hora
     task_time_limit=180,      # Mata a task se demorar mais de 120s (evita zumbis)
@@ -48,3 +51,10 @@ celery_app.conf.update(
         "app.tasks.api_processor.*": {"queue": "main-queue"}
     }
 )
+
+celery_app.conf.beat_schedule = {
+    'varredura-agendamentos-a-cada-minuto': {
+        'task': 'app.tasks.api_processor.varredor_agendamentos',
+        'schedule': crontab(minute='*')
+    }
+}

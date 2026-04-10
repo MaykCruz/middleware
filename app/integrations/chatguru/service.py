@@ -14,7 +14,9 @@ class ChatGuruService:
         self.session = SessionManager()
         self.chat_id = chat_id
         self.chat_number = chat_id
-        
+    
+    def execute_dialog(self, chat_number: str, dialog_id: str):
+        return self.client.execute_dialog(chat_number=chat_number, dialog_id=dialog_id)
 
     def send_message(self, chat_id: str, message_key: str, variables: Optional[Dict[str, Any]] = None, force_internal: bool = False, delay: float = 0.0):
         """Envia mensagem para o cliente OU adiciona nota interna"""

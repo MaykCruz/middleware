@@ -1,8 +1,12 @@
 import logging
 from app.core.logger import chat_id_var
+from app.infrastructure.database import supabase_client
+from app.core.vendedores import EQUIPE_VENDAS
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from typing import Optional, Dict, Any, Union
 from app.integrations.chatguru.service import ChatGuruService
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
@@ -15,9 +19,9 @@ logger = logging.getLogger(__name__)
 class BotContext(BaseModel):
     Erro: Optional[bool] = False
     Timer: Optional[bool] = False
-    URA: Optional[str] = None
-    Contexto: Optional[str] = None
-    Produto: Optional[str] = None
+    URA: Union[str, bool, None] = None
+    Contexto: Union[str, bool, None] = None
+    Produto: Union[str, bool, None] = None
 
 class ChatGuruPayload(BaseModel):
     chat_id: str
@@ -26,7 +30,8 @@ class ChatGuruPayload(BaseModel):
     texto_mensagem: str
     bot_context: BotContext
     phone_id: Optional[str] = None
-    campos_personalizados: Optional[dict] = None
+    campos_personalizados: Optional[Dict[str, Any]] = None
+    executado_por: Optional[str] = None
 
     class Config:
         extra = "allow"
@@ -266,6 +271,69 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             }
         )
         return {"status": "ok", "fluxo": "atualizar_telefone_clt"}
+    
+    elif contexto_atual == "agendamento":
+        logger.info(f"📅 [ChatGuru] Processando agendamento para o Chat {chat_id}")
+
+        campos = payload.campos_personalizados or {}
+        data_str = campos.get("Data")
+        hora_str = campos.get("Hora")
+        motivo = campos.get("Motivo_agendamento", "Não informado")
+        atendente_email = payload.executado_por
+        perfil_atendente = EQUIPE_VENDAS.get(atendente_email, {})
+        atendente_nome = perfil_atendente.get("nome", atendente_email)
+
+        if not data_str or not hora_str:
+            logger.error(f"❌ [Agendamento] Data ou Hora ausentes no Chat {chat_id}")
+            return {"status": "erro", "msg": "Campos de data/hora incompletos."}
+        
+        if not supabase_client:
+            return {"status": "erro", "msg": "Banco de dados não configurado."}
+        
+        try:
+            agendamento_dt = datetime.strptime(f"{data_str} {hora_str}", "%Y-%m-%d %H:%M")
+            fuso_br = ZoneInfo("America/Sao_Paulo")
+            agora_dt = datetime.now(fuso_br).replace(tzinfo=None)
+
+            if agendamento_dt < agora_dt:
+                logger.warning(f"⚠️ [Agendamento] Vendedor tentou agendar no passado: {data_str} {hora_str}")
+                chatguru.send_message(
+                    chat_id=chat_id,
+                    message_key="blank",
+                    variables={"blank": "⚠️ *O agendamento falhou:*\nA data e hora informadas já passaram! Por favor, insira um horário no futuro."},
+                    force_internal=True
+                )
+                return {"status": "erro", "msg": "Data no passado."}
+            
+            agendamento_iso = agendamento_dt.isoformat()
+            
+            supabase_client.table("agendamentos").insert({
+                "chat_id": chat_id,
+                "phone_id": payload.phone_id,
+                "atendente": atendente_email,
+                "motivo": motivo,
+                "data_agendada": agendamento_iso,
+                "status": "PENDENTE"
+            }).execute()
+
+            logger.info(f"✅ [Agendamento] Salvo no banco para {chat_id} às {agendamento_iso}")
+            
+            msg_sucesso = f"✅ *Agendamento Confirmado!*\n📅 Data: {data_str} às {hora_str}\n👤 Atendente: {atendente_nome}\n📝 Motivo: {motivo}\n\nO chat será reaberto automaticamente no horário estipulado."
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": msg_sucesso},
+                force_internal=True
+            )
+            return {"status": "ok", "msg": "Agendamento salvo no banco com sucesso"}
+        
+        except ValueError as e:
+            logger.error(f"❌ [Agendamento] Erro ao formatar data/hora: {e}")
+            return {"status": "erro", "msg": "Formato de data/hora inválido."}
+        
+        except Exception as e:
+            logger.error(f"❌ [Agendamento] Falha grave ao salvar no banco: {e}")
+            return {"status": "erro", "msg": "Erro interno do servidor."}
 
     else:
         logger.warning(f"⚠️ [ChatGuru] Contexto desconhecido recebido: '{contexto_atual}'. Nenhuma task disparada.")

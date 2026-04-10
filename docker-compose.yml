@@ -31,6 +31,17 @@ services:
       - .env
     restart: always
   
+  beat:
+    build: .
+    command: celery -A app.infrastructure.celery beat -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: always
+  
   redis-insight:
     image: redis/redisinsight:latest
     ports:
