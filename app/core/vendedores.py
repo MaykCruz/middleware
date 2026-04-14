@@ -38,5 +38,9 @@ EQUIPE_VENDAS = {
     "natalia.vilela@emprestedigital.com.br": {
         "nome": "Natália Vilela",
         "id_dialogo_agendamento": "69d92eb0c81d559f9b65e70e"
+    },
+    "agendamento_bot": {
+        "nome": "ChatBot",
+        "id_dialogo_agendamento": "69de7f44e11e6f3d137ad6f5"
     }
 }
