@@ -188,6 +188,13 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         )
         return {"status": "ok", "fluxo": "digitacao_clt"}
     
+    elif contexto_atual == "aguardando_digitacao_clt_pix":
+        logger.info(f"🚀 [ChatGuru] Disparando Task: Digitação CLT com Pix para o Chat {chat_id}")
+
+        campos = payload.campos_personalizados or {}
+        chave_pix = campos.get("Chave_Pix")
+        tipo_chave_pix = campos.get("Tipo_Chave_Pix")
+    
     elif contexto_atual == "verificar_autorizacao_clt":
         logger.info(f"🔄 [ChatGuru] Verificação manual de autorização solicitada (Chat {chat_id})")
 

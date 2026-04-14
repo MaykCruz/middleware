@@ -5,6 +5,7 @@ from datetime import datetime
 from app.integrations.facta.clt.service import FactaCLTService
 from app.integrations.v8.clt.service import V8CLTService
 from app.services.bank_account_service import BankAccountService
+from app.integrations.newcorban.service import NewCorbanService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses, parse_valor_monetario
@@ -21,6 +22,7 @@ class CLTService:
         self.bank_service = BankAccountService(http_client)
         self.session_manager = SessionManager()
         self.v8_service = V8CLTService()
+        self.newcorban_service = NewCorbanService()
 
     def _gerar_sugestoes_transbordo(self, idade: int, meses_casa: int, meses_empresa: int) -> list:
         sugestoes = []
@@ -94,8 +96,18 @@ class CLTService:
                     "dados_bancarios": dados_bancarios_completo,
                     "nota_interna_extra": resultado_raw.get("nota_interna_extra", "")
                 }
+                dados_basicos_cliente = {
+                    "nome": trabalhador.get("nome"),
+                    "data_nascimento": trabalhador.get("dataNascimento"),
+                    "nome_mae": trabalhador.get("nomeMae"),
+                    "sexo_descricao": trabalhador.get("sexo_descricao")
+                }
+
+                dados_new = self.newcorban_service.buscar_dados_cadastrais(cpf) or {}
             
                 self.session_manager.update_context(chat_id, {
+                    "dados_newcorban": dados_new,
+                    "dados_basicos_cliente": dados_basicos_cliente,
                     "oferta_selecionada": {
                         "produto": "CLT",
                         "detalhes": detalhes_oferta
@@ -585,4 +597,4 @@ class CLTService:
                     "erro": msg_tecnica
                     },
                     raw_details=resultado_raw
-                ) 
+                )

@@ -74,40 +74,71 @@ class FactaProposalService:
         Traduz o JSON 'sujo' da Consulta Facta para o formato limpo do Schema Step 2.
         Usa 'tipo_dado' (PIX ou CONTA) para decidir o preenchimento.
         """
-        naturalidade_id = self._extrair_id_hibrido(dados_api.get("CIDADENATURAL"))
+        dados_api = dados_api or {}
 
-        estado_natural = self.data_manager.get_uf_por_id(naturalidade_id)
-        if not estado_natural:
-            estado_natural = dados_api.get("ESTADORG")
+        dados_basicos = dados_contexto.get("dados_basicos_cliente", {})
+        nc = dados_contexto.get("dados_newcorban", {})
+
+        sexo_desc = str(dados_basicos.get("sexo_descricao", "")).upper()
+        sexo_sigla = "F" if "FEMININO" in sexo_desc else "M"
+
+        nome = dados_api.get("DESCRICAO") or dados_basicos.get("nome") or nc.get("nome")
+        nome_mae = dados_api.get("NOMEMAE") or dados_basicos.get("nome_mae") or nc.get("nome_mae") or "NAO INFORMADO"
+
+        data_nascimento_raw = dados_api.get("DATANASCIMENTO") or dados_basicos.get("data_nascimento") or nc.get("data_nascimento")
+        data_nascimento = self._converter_data(data_nascimento_raw)
+
+        sexo = dados_api.get("SEXO") or nc.get("sexo") or sexo_sigla
+
+        rg = dados_api.get("RG") or nc.get("rg") or cpf
+        orgao_emissor = dados_api.get("ORGAOEMISSOR") or "SSP"
+        estado_rg = dados_api.get("ESTADORG") or nc.get("uf") or "SP"
+
+        data_expedicao_raw = dados_api.get("EMISSAORG")
+        data_expedicao = self._converter_data(data_expedicao_raw) if data_expedicao_raw else "01/01/2010"
         
-        cidade_id = self._extrair_id_hibrido(dados_api.get("CIDADE"))
+        cep_raw = dados_api.get("CEP") or nc.get("cep")
+        cep = self._limpar_numeros(cep_raw) or "01001000"
+        endereco = dados_api.get("ENDERECO") or nc.get("logradouro") or "RUA NAO INFORMADA"
 
-        numero = dados_api.get("NUMERO")
-        if not numero or str(numero).strip() == "":
-            numero = "01"
+        numero = dados_api.get("NUMERO") or nc.get("numero")
+        numero = str(numero) if numero and str(numero).strip() != "" else "01"
+        bairro = dados_api.get("BAIRRO") or nc.get("bairro") or "CENTRO"
+
+        cidade_api = dados_api.get("CIDADE") or nc.get("cidade")
+        cidade_id = self._extrair_id_hibrido(cidade_api)
+        estado = dados_api.get("ESTADO") or nc.get("uf") or "SP"
+
+        naturalidade_id = self._extrair_id_hibrido(dados_api.get("CIDADENATURAL"))
+        estado_natural = self.data_manager.get_uf_por_id(naturalidade_id) or estado_rg
         
         celular_contexto = self._formatar_celular(dados_contexto.get("celular"))
 
         payload = {
             "id_simulador": id_simulador,
             "cpf": cpf,
-            "nome": dados_api.get("DESCRICAO"),
-            "sexo": dados_api.get("SEXO"),
-            "data_nascimento": self._converter_data(dados_api.get("DATANASCIMENTO")),
-            "rg": dados_api.get("RG"),
-            "estado_rg": dados_api.get("ESTADORG"),
-            "orgao_emissor": dados_api.get("ORGAOEMISSOR"),
-            "data_expedicao": self._converter_data(dados_api.get("EMISSAORG")),
+            "nome": nome,
+            "sexo": sexo,
+            "data_nascimento": data_nascimento,
+
+            "rg": rg,
+            "estado_rg": estado_rg,
+            "orgao_emissor": orgao_emissor,
+            "data_expedicao": data_expedicao,
+
             "cidade_natural": naturalidade_id,
             "estado_natural": estado_natural,
+
             "celular": celular_contexto,
-            "cep": self._limpar_numeros(dados_api.get("CEP")),
-            "endereco": dados_api.get("ENDERECO"),
+
+            "cep": cep,
+            "endereco": endereco,
             "numero": str(numero),
-            "bairro": dados_api.get("BAIRRO"),
+            "bairro": bairro,
             "cidade": cidade_id,
-            "estado": dados_api.get("ESTADO"),
-            "nome_mae": dados_api.get("NOMEMAE")
+            "estado": estado,
+
+            "nome_mae": nome_mae
         }
         
         oferta_ctx = dados_contexto.get("oferta_selecionada", {})

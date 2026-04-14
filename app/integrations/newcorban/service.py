@@ -24,6 +24,63 @@ class NewCorbanService:
         self.tabela_id = os.getenv('NEW_TABELA_ID', "53244")
         self.vendedor = os.getenv('NEW_VENDEDOR', "12995")
         self.banco_id = 935 # Facta
+    
+    def _achatar_dados_newcorban(self, dados_brutos: dict) -> dict:
+        """
+        Transforma o JSON aninhado do NewCorban em um dicionário plano (flat)
+        para facilitar o mapeador da Facta.
+        """ 
+        if not dados_brutos:
+            return {}
+        
+        pessoais = dados_brutos.get("pessoais", {})
+        contato = dados_brutos.get("contato", {})
+
+        enderecos = contato.get("enderecos", [])
+        endereco_principal = enderecos[0] if enderecos else {}
+
+        rg_numero = ""
+        for doc in pessoais.get("documentos", []):
+            if doc.get("tipo") == "RG":
+                rg_numero = doc.get("numero")
+                break
+        
+        return {
+            "nome": pessoais.get("nome"),
+            "data_nascimento": pessoais.get("dataNascimento"),
+            "nome_mae": pessoais.get("nomeMae"),
+            "sexo": pessoais.get("sexo"),
+            "renda": pessoais.get("renda"),
+            "rg": rg_numero,
+            
+            "cep": endereco_principal.get("cep"),
+            "logradouro": endereco_principal.get("logradouro"),
+            "numero": endereco_principal.get("numero"),
+            "bairro": endereco_principal.get("bairro"),
+            "cidade": endereco_principal.get("cidade"),
+            "uf": endereco_principal.get("uf"),
+        }
+    
+    def buscar_dados_cadastrais(self, cpf: str) -> Optional[Dict[str, Any]]:
+        """
+        Orquestra a busca de dados cadastrais exclusivos do NewCorban.
+        Gera o token APT necessário e consome o endpoint do Client.
+        """
+
+        apt_token = self.client.get_session_apt()
+        if not apt_token:
+            logger.error("❌ [NewCorban Service] Falha ao gerar APT. Busca abortada.")
+            return None
+        
+        dados_brutos = self.client.get_customer_data(cpf, apt_token)
+
+        if not dados_brutos:
+            logger.warning("⚠️ [NewCorban Service] Nenhum dado retornado para este CPF.")
+            return None
+        
+        dados_limpos = self._achatar_dados_newcorban(dados_brutos)
+        
+        return dados_limpos
         
     def consultar_conta_fallback(self, cpf: str) -> Optional[Dict[str, Any]]:
         """

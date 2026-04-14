@@ -1,6 +1,9 @@
 import time
 import httpx
 import logging
+import json
+import urllib.parse
+import base64
 import os
 import re
 from app.infrastructure.token_manager import TokenManager
@@ -56,6 +59,116 @@ class NewCorbanClient:
         }
 
         self.http_client = get_newcorban_client()
+    
+    def get_session_apt(self) -> Optional[str]:
+        """
+        Gera o token 'apt' necessário para as consultas de dados cadastrais chamando o endpoint /api/v2/session/check.
+        """
+        logger.info("🔑 [NewCorban Client] Solicitando token APT para consulta cadastral...")
+
+        token = self._authenticate_internal()
+        if not token:
+            logger.error("❌ [NewCorban Client] Sem token Bearer, impossível gerar APT.")
+            return None
+        
+        url = f"{self.url_base_sistema}/api/v2/session/check"
+
+        headers = self.headers_browser.copy()
+        headers.update({
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {token}"
+        })
+
+        try:
+            response = self.http_client.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    apt_token = data.get("apt") 
+                    
+                    if apt_token:
+                        logger.info("✅ [NewCorban Client] Token APT gerado com sucesso.")
+                        return apt_token
+                    else:
+                        logger.warning("⚠️ [NewCorban Client] Endpoint retornou 200, mas não encontrou o campo 'apt'.")
+                        return None
+                        
+                except Exception:
+                    logger.error("❌ [NewCorban Client] Erro ao decodificar JSON do /session/check.")
+                    return None
+            else:
+                logger.warning(f"⚠️ [NewCorban Client] Erro HTTP {response.status_code} ao buscar APT: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ [NewCorban Client] Erro de conexão (Gerar APT): {e}")
+            return None
+    
+    def get_customer_data(self, cpf: str, apt_token: str) -> Optional[Dict[str, Any]]:
+        """
+        Busca os dados cadastrais do cliente no NewCorban usando o token APT
+        e a condificação exata exigida pelo endpoint (JSON -> Escape -> Base64).
+        """
+        token = self._authenticate_internal()
+        if not token:
+            logger.error("❌ [NewCorban Client] Sem token Bearer, impossível buscar dados do cliente.")
+            return None
+        
+        url = "https://consulta.newcorban.com.br/?s=consulta&f=offline"
+
+        headers = self.headers_browser.copy()
+        headers.update({
+            'authorization': f'Bearer {token}',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        })
+
+        cpf_limpo = re.sub(r'\D', '', cpf)
+
+        dict_payload = {
+            "source": "GDSF",
+            "type": "offline",
+            "cpf": cpf_limpo
+        }
+
+        json_str = json.dumps(dict_payload, separators=(',', ':'))
+        encoded_url = urllib.parse.quote(json_str)
+        cpf_encoded = base64.b64encode(encoded_url.encode('utf-8')).decode('utf-8')
+
+        payload = {
+            "action": "offline",
+            "params": cpf_encoded,
+            "encode": "true",
+            "apt": apt_token
+        }
+
+        try:
+            response = self.http_client.post(url, data=payload, headers=headers)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    
+                    if data.get("error") is True or data.get("codigo") == 400:
+                        logger.warning(f"⚠️ [NewCorban Client] APT Expirado ou inválido: {data.get('mensagem')}")
+                        return None
+                        
+                    if data.get("sucesso") is True:
+                        logger.info("✅ [NewCorban Client] Dados cadastrais retornados com sucesso.")
+                        return data.get("dados", {})
+                        
+                    return None
+                except Exception:
+                    logger.error("❌ [NewCorban Client] Erro ao decodificar JSON dos dados cadastrais.")
+                    return None
+
+            else:
+                logger.warning(f"⚠️ [NewCorban Client] Erro {response.status_code} ao buscar cliente: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ [NewCorban Client] Erro de conexão (Busca Cliente): {e}")
+            return None
     
     def get_bank_account_history(self, cpf: str) -> Optional[List[Dict[str, Any]]]:
         """
