@@ -6,6 +6,7 @@ from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda
 from app.utils.validators import calcular_segundo_dia_util_prox_mes
+from app.utils.schedules import agendar_para_data_fixa
 
 logger = logging.getLogger(__name__)
 
@@ -122,13 +123,23 @@ class FGTSService:
         
         if motivo == "ANIVERSARIANTE":
 
-            data = calcular_segundo_dia_util_prox_mes()
+            data_amigavel, data_agendamento = calcular_segundo_dia_util_prox_mes()
+
+            contexto = self.session_manager.get_context(chat_id)
+            phone_id = contexto.get("phone_id")
+
+            agendar_para_data_fixa(
+                chat_id=chat_id,
+                phone_id=phone_id,
+                data_str=data_agendamento,
+                motivo="Retentativa Auto: FGTS Aniversariante"
+            )
 
             return CreditOffer(
                 status=AnalysisStatus.ANIVERSARIANTE,
                 message_key="aniversariante",
                 variables={
-                    "data": data
+                    "data": data_amigavel
                 },
                 raw_details=resultado_raw
             )
