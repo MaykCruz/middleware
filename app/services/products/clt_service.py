@@ -9,6 +9,7 @@ from app.integrations.newcorban.service import NewCorbanService
 from app.schemas.credit import CreditOffer, AnalysisStatus
 from app.services.bot.memory.session import SessionManager
 from app.utils.formatters import formatar_moeda, obter_mes_inicio_desconto, formatar_display_tempo, calcular_meses, parse_valor_monetario
+from app.utils.schedules import agendar_retentativa_automatica
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +460,16 @@ class CLTService:
                         status_falha = AnalysisStatus.MENOS_SEIS_MESES
                         chave_mensagem = "menos_seis_meses" 
                         texto_conflito = f"❌ *Todos os bancos* exigem no mínimo 3 meses de carteira assinada (Cliente tem apenas {meses_casa_1} meses)."
+
+                        contexto = self.session_manager.get_context(chat_id)
+                        phone_id = contexto.get("phone_id")
+
+                        agendar_retentativa_automatica(
+                            chat_id=chat_id,
+                            phone_id=phone_id,
+                            data_admissao_str=admissao_1,
+                            meses_alvo=3
+                        )
                     
                     # 4º PRIORIDADE: Empresa muito nova
                     elif meses_empresa_1 < 24:

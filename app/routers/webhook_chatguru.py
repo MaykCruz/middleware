@@ -312,6 +312,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
                 )
                 return {"status": "erro", "msg": "Data no passado."}
             
+            data_formatada_br = agendamento_dt.strftime("%d/%m/%Y")
             agendamento_iso = agendamento_dt.isoformat()
             
             supabase_client.table("agendamentos").insert({
@@ -325,7 +326,7 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
 
             logger.info(f"✅ [Agendamento] Salvo no banco para {chat_id} às {agendamento_iso}")
             
-            msg_sucesso = f"✅ *Agendamento Confirmado!*\n📅 Data: {data_str} às {hora_str}\n👤 Atendente: {atendente_nome}\n📝 Motivo: {motivo}\n\nO chat será reaberto automaticamente no horário estipulado."
+            msg_sucesso = f"✅ *Agendamento Confirmado!*\n📅 Data: {data_formatada_br} às {hora_str}\n👤 Atendente: {atendente_nome}\n📝 Motivo: {motivo}\n\nO chat será reaberto automaticamente no horário estipulado."
             chatguru.send_message(
                 chat_id=chat_id,
                 message_key="blank",

@@ -89,6 +89,11 @@ def calcular_segundo_dia_util_prox_mes():
             ano_proximo += 1
             
         data_resultado = calcular_segundo_dia_util_mes(mes_proximo, ano_proximo)
+
+        data_amigavel = formatar_data_br(data_resultado)
+        data_banco_dados = data_resultado.strftime("%d/%m/%Y")
+
+        return data_amigavel, data_banco_dados
     
     # Retorna formatado sem depender do locale do Windows/Linux
     return formatar_data_br(data_resultado)
