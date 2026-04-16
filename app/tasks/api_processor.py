@@ -931,3 +931,19 @@ def varredor_agendamentos():
     except Exception as e:
         logger.error(f"❌ [Varredor] Falha ao varrer banco de dados: {e}")
         return "Falha na execução"
+
+@celery_app.task(name="app.tasks.api_processor.enviar_nota_interna_agendamento")
+def enviar_nota_interna_agendamento(chat_id: str, phone_id: str, mensagem: str):
+    """
+    Task dedicada a enviar notas internas com atraso planejado.
+    """
+    try:
+        chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
+        chatguru.send_message(
+            chat_id=chat_id, 
+            message_key="blank", 
+            variables={"blank": mensagem}, 
+            force_internal=True
+        )
+    except Exception as e:
+        raise e

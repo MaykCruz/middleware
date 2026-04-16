@@ -115,9 +115,8 @@ def agendar_retentativa_automatica(chat_id: str, phone_id: str, data_admissao_st
             "status": "PENDENTE"
         }).execute()
 
-        from app.integrations.chatguru.service import ChatGuruService
-        chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
-
+        from app.infrastructure.celery import celery_app
+        
         data_exibicao = data_agendamento.strftime('%d/%m/%Y às %H:%M')
         msg_interna = (
             f"🤖 *[BOT] Agendamento Automático Realizado*\n\n"
@@ -126,12 +125,15 @@ def agendar_retentativa_automatica(chat_id: str, phone_id: str, data_admissao_st
             f"💡 _O bot reabrirá este chat automaticamente nesta data._"
         )
         
-        chatguru.send_message(
-            chat_id=chat_id, 
-            message_key="blank", 
-            variables={"blank": msg_interna}, 
-            force_internal=True,
-            delay=10
+        celery_app.send_task(
+            "app.tasks.api_processor.enviar_nota_interna_agendamento",
+            kwargs={
+                "chat_id": chat_id,
+                "phone_id": phone_id,
+                "mensagem": msg_interna
+            },
+            countdown=10
+
         )
 
         logger.info(f"✅ [Agendamento Auto] Chat {chat_id} agendado para {data_agendamento.strftime('%d/%m/%Y às %H:%M')}")
