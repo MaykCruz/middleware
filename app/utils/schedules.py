@@ -55,7 +55,8 @@ def agendar_para_data_fixa(chat_id: str, phone_id: str, data_str: str, motivo: s
             chat_id=chat_id, 
             message_key="blank", 
             variables={"blank": msg_interna}, 
-            force_internal=True
+            force_internal=True,
+            delay=10
         )
 
         logger.info(f"✅ [Agendamento Auto] Chat {chat_id} agendado para data fixa: {data_agendamento.strftime('%d/%m/%Y às %H:%M')}")
@@ -130,7 +131,8 @@ def agendar_retentativa_automatica(chat_id: str, phone_id: str, data_admissao_st
             chat_id=chat_id, 
             message_key="blank", 
             variables={"blank": msg_interna}, 
-            force_internal=True
+            force_internal=True,
+            delay=10
         )
 
         logger.info(f"✅ [Agendamento Auto] Chat {chat_id} agendado para {data_agendamento.strftime('%d/%m/%Y às %H:%M')}")
