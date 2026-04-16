@@ -89,8 +89,7 @@ def agendar_retentativa_automatica(chat_id: str, phone_id: str, data_admissao_st
     
     try:
         admissao_dt = datetime.strptime(data_admissao_str, "%d/%m/%Y")
-        data_exata_meses = _adicionar_meses_precisao(admissao_dt, meses_alvo)
-        data_futura = data_exata_meses + timedelta(days=1)
+        data_futura = _adicionar_meses_precisao(admissao_dt, meses_alvo)
 
         fuso_br = ZoneInfo("America/Sao_Paulo")
         agora = datetime.now(fuso_br)
