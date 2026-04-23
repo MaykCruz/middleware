@@ -662,10 +662,7 @@ def executar_fluxo_clt_chatguru(self, chat_id: str, cpf: str, nome: str, celular
             chatguru.send_message(chat_id=chat_id,
             message_key="clt_virada_folha",
             force_internal=True)
-            if phone_id == "69ab40f8711da456330ae71c":
-                chatguru.start_macica_3589(chat_id)
-            else:
-                chatguru.start_macica_8037(chat_id)
+            chatguru.start_put_in_queue(chat_id)
         
         elif oferta.status == AnalysisStatus.ERRO_TECNICO:
             chatguru.start_put_in_queue(chat_id)
