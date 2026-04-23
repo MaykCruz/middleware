@@ -891,6 +891,15 @@ def varredor_agendamentos():
             db_id = agendamento["id"]
             motivo = agendamento.get("motivo", "")
 
+            trava = supabase_client.table("agendamentos") \
+                .update({"status": "PROCESSANDO"}) \
+                .eq("id", db_id) \
+                .eq("status", "PENDENTE") \
+                .execute()
+            
+            if not trava.data:
+                continue
+
             chatguru = ChatGuruService(chat_id=chat_id, phone_id=agendamento.get("phone_id"))
 
             perfil_vendedor = EQUIPE_VENDAS.get(atendente_email, {})
