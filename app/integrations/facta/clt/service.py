@@ -199,12 +199,12 @@ class FactaCLTService:
 
     
     def _definir_fator_margem(self, salario: float) -> float:
-        if salario <= 5000.00:
-            return 0.97
-        elif salario <= 7350.00:
-            return 0.90
-        else:
-            return 0.80
+        """
+        Fator de comprometimento de margem unificado em 0.90 (90%) para todos 
+        os salários conforme nova regra de negócio.
+        O parâmetro 'salario' foi mantido para evitar quebra de contrato com o método chamador.
+        """
+        return 0.90
         
     def _validar_regras_basicas(self, dados: dict) -> dict:
         elegivel = str(dados.get("elegivel", "")).upper()
