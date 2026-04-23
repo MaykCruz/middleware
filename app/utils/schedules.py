@@ -110,7 +110,7 @@ def agendar_retentativa_automatica(chat_id: str, phone_id: str, data_admissao_st
             "chat_id": chat_id,
             "phone_id": phone_id,
             "atendente": "agendamento_bot",
-            "motivo": f"Rentativa Auto: Cliente completou {meses_alvo} meses de empresa.",
+            "motivo": f"Retentativa Auto: Cliente completou {meses_alvo} meses de empresa.",
             "data_agendada": data_agendamento.isoformat(),
             "status": "PENDENTE"
         }).execute()

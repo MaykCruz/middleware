@@ -147,8 +147,8 @@ class V8CLTAdapter:
 
         except httpx.HTTPStatusError as e:
             erro_json = e.response.json()
-            logger.error(
-                f"❌ [DEBUG V8 CLT] Erro HTTP {e.response.status_code} ao simular.\n"
+            logger.warning(
+                f"⚠️ [DEBUG V8 CLT] Retorno HTTP {e.response.status_code} ao simular.\n"
                 f"Corpo (Raw) retornado pela V8: {erro_json}"
             )
             return {"is_error": True, "payload": erro_json}
