@@ -109,7 +109,8 @@ class V8CLTService:
         ]
 
         ERROS_ABORTAR_FLUXO = [
-            "simulation_consult_operation_ongoing"
+            "simulation_consult_operation_ongoing",
+            "simulation_target_amount_below_minimum"
         ]
 
         erro_inelegivel_encontrado = False
