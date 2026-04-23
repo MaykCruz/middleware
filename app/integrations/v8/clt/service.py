@@ -104,12 +104,15 @@ class V8CLTService:
         simulacao = None
 
         ERROS_TENTAR_PROXIMA = [
-            "provider_does_not_have_insurance_active"
+            "provider_does_not_have_insurance_active",
+            "simulation_not_eligible"
         ]
 
         ERROS_ABORTAR_FLUXO = [
             "simulation_consult_operation_ongoing"
         ]
+
+        erro_inelegivel_encontrado = False
 
         for tabela in fila_tabelas:
             table_id = tabela.get("id")
@@ -145,6 +148,9 @@ class V8CLTService:
                     }
                 
                 if tipo_erro in ERROS_TENTAR_PROXIMA:
+                    if tipo_erro == "simulation_not_eligible":
+                        erro_inelegivel_encontrado = True
+
                     logger.warning(f"⚠️ [V8 Service] Tabela {nome_tabela} indisponível ({tipo_erro}). Indo para próxima...")
                     continue
 
@@ -162,6 +168,15 @@ class V8CLTService:
 
         if not simulacao:
             logger.error(f"❌ [V8 Service] Todas as tentativas de tabela falharam para {consult_id}.")
+
+            if erro_inelegivel_encontrado:
+                logger.warning(f"🚫 [V8 Service] Cliente classificado como inelegível durante as tentativas.")
+                return {
+                    "acao": "SIMULACAO_BLOQUEADA", 
+                    "sub_tipo": tipo_erro,
+                    "mensagem": detalhe
+                }
+            
             return {"acao": "ERRO_SIMULACAO", "mensagem": "Não foi possível encontrar uma tabela compatível para este valor."}
         
         logger.info(f"🎉 [V8 Service] Simulação finalizada com sucesso para {consult_id}!")
