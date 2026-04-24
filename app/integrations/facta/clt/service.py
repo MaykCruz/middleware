@@ -329,23 +329,24 @@ class FactaCLTService:
                     if any(str(t.get("tabela", "")).startswith(prefix) for prefix in permitidas)
                 ]
 
-                if tabelas_validas:
-                    tabelas_ordenadas = sorted(
-                        tabelas_validas,
-                        key=lambda t: (
-                            "3PMT" in str(t.get("tabela", "")).upper(), 
-                            "4PMT" in str(t.get("tabela", "")).upper(), 
-                            "2PMT" in str(t.get("tabela", "")).upper(),
-                            float(t.get("valor_liquido", 0))            
-                        ),
-                        reverse=True
-                    )
-                    melhor_opcao = tabelas_ordenadas[0]
-                    oferta_encontrada = melhor_opcao
-                else:
-                    logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou para {meses_registro} meses de registo.")
-                    motivo_falha = "SEM_OPERACOES"
-                    msg_falha = f"Nenhuma tabela atende à regra de {meses_registro} meses de registo."
+                if not tabelas_validas:
+                    logger.warning(f"⚠️ [CLT] Nenhuma tabela da regra retornou para {meses_registro} meses. Ativando Fallback Absoluto (Seguro > Maior Valor).")
+                    tabelas_validas = grupo_para_analise
+
+                tabelas_ordenadas = sorted(
+                    tabelas_validas,
+                    key=lambda t: (
+                        float(t.get("valor_seguro", 0)) > 0,        
+                        "3PMT" in str(t.get("tabela", "")).upper(), 
+                        "4PMT" in str(t.get("tabela", "")).upper(), 
+                        "2PMT" in str(t.get("tabela", "")).upper(),
+                        float(t.get("valor_liquido", 0))            
+                    ),
+                    reverse=True
+                )
+                melhor_opcao = tabelas_ordenadas[0]
+                oferta_encontrada = melhor_opcao
+
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
@@ -431,12 +432,13 @@ class FactaCLTService:
         ]
 
         if not tabelas_validas:
-            logger.warning(f"⚠️ [CLT] Recálculo falhou: Nenhuma tabela permitida para {meses_registro} meses.")
-            return {"aprovado": False, "motivo": "SEM_TABELA_PERMITIDA", "msg_tecnica": f"Nenhuma tabela válida para {meses_registro} meses de registo."}
+            logger.warning(f"⚠️ [CLT] Recálculo sem tabela na regra para {meses_registro} meses. Ativando Fallback Absoluto (Seguro > Maior Valor).")
+            tabelas_validas = grupo_analise
 
         tabelas_ordenadas = sorted(
             tabelas_validas,
             key=lambda t: (
+                float(t.get("valor_seguro", 0)) > 0,        
                 "3PMT" in str(t.get("tabela", "")).upper(), 
                 "4PMT" in str(t.get("tabela", "")).upper(), 
                 "2PMT" in str(t.get("tabela", "")).upper(),
