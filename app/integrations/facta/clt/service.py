@@ -314,35 +314,38 @@ class FactaCLTService:
                     logger.info(f"✅ [CLT] Encontradas {len(tabelas_dentro_do_limite)} tabelas dentro do teto. Aplicando regras de escolha.")
                 
                 if meses_registro <= 8:
-                    permitidas = ["65170", "65226"]
+                    permitidas = ["65170", "65226", "65137", "65277"] 
                 elif 9 <= meses_registro <= 12:
-                    permitidas = ["65188", "65234"]
-                elif 13 <= meses_registro <=36:
-                    permitidas = ["65196", "65242"]
-                elif 37 <= meses_registro <=120:
-                    permitidas = ["65200", "65250"]
-                else:
-                    permitidas = ["65218", "65269"]
+                    permitidas = ["65188", "65234", "65137", "65285"]
+                elif 13 <= meses_registro <= 36: 
+                    permitidas = ["65196", "65242", "65145", "65293"]
+                elif 37 <= meses_registro <= 120: 
+                    permitidas = ["65200", "65250", "65153", "65307"]
+                else: 
+                    permitidas = ["65218", "65269", "65161", "65315"]
                 
                 tabelas_validas = [
                     t for t in grupo_para_analise
                     if any(str(t.get("tabela", "")).startswith(prefix) for prefix in permitidas)
                 ]
 
-                if not tabelas_validas:
-                    logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou para {meses_registro} meses de registro. Usando fallback.")
-                    tabelas_validas = grupo_para_analise
-                
-                tabelas_ordenadas = sorted(
-                    tabelas_validas,
-                    key=lambda t: (
-                        "3PMT" in str(t.get("tabela", "")).upper(), 
-                        float(t.get("valor_liquido", 0))            
-                    ),
-                    reverse=True
-                )
-                melhor_opcao = tabelas_ordenadas[0]
-                oferta_encontrada = melhor_opcao
+                if tabelas_validas:
+                    tabelas_ordenadas = sorted(
+                        tabelas_validas,
+                        key=lambda t: (
+                            "3PMT" in str(t.get("tabela", "")).upper(), 
+                            "4PMT" in str(t.get("tabela", "")).upper(), 
+                            "2PMT" in str(t.get("tabela", "")).upper(),
+                            float(t.get("valor_liquido", 0))            
+                        ),
+                        reverse=True
+                    )
+                    melhor_opcao = tabelas_ordenadas[0]
+                    oferta_encontrada = melhor_opcao
+                else:
+                    logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou para {meses_registro} meses de registo.")
+                    motivo_falha = "SEM_OPERACOES"
+                    msg_falha = f"Nenhuma tabela atende à regra de {meses_registro} meses de registo."
             else:
                 motivo_falha = "SEM_PRAZO_COMPATIVEL"
                 msg_falha = f"Tabelas encontradas, mas nenhuma para {prazo_politica} meses."
@@ -412,15 +415,15 @@ class FactaCLTService:
         grupo_analise = tabelas_dentro_do_limite if tabelas_dentro_do_limite else tabelas_no_prazo
 
         if meses_registro <= 8:
-            permitidas = ["65170", "65226"]
+            permitidas = ["65170", "65226", "65137", "65277"]
         elif 9 <= meses_registro <= 12:
-            permitidas = ["65188", "65234"]
-        elif 13 <= meses_registro <= 36:
-            permitidas = ["65196", "65242"]
-        elif 37 <= meses_registro <= 120:
-            permitidas = ["65200", "65250"]
-        else:
-            permitidas = ["65218", "65269"]
+            permitidas = ["65188", "65234", "65137", "65285"]
+        elif 13 <= meses_registro <= 36: 
+            permitidas = ["65196", "65242", "65145", "65293"]
+        elif 37 <= meses_registro <= 120: 
+            permitidas = ["65200", "65250", "65153", "65307"]
+        else: 
+            permitidas = ["65218", "65269", "65161", "65315"]
 
         tabelas_validas = [
             t for t in grupo_analise
@@ -428,13 +431,15 @@ class FactaCLTService:
         ]
 
         if not tabelas_validas:
-            logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou no recálculo para {meses_registro} meses de registro. Usando fallback.")
-            tabelas_validas = grupo_analise
+            logger.warning(f"⚠️ [CLT] Recálculo falhou: Nenhuma tabela permitida para {meses_registro} meses.")
+            return {"aprovado": False, "motivo": "SEM_TABELA_PERMITIDA", "msg_tecnica": f"Nenhuma tabela válida para {meses_registro} meses de registo."}
 
         tabelas_ordenadas = sorted(
             tabelas_validas,
             key=lambda t: (
                 "3PMT" in str(t.get("tabela", "")).upper(), 
+                "4PMT" in str(t.get("tabela", "")).upper(), 
+                "2PMT" in str(t.get("tabela", "")).upper(),
                 float(t.get("valor_liquido", 0))            
             ),
             reverse=True
