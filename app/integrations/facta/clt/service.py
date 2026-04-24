@@ -277,6 +277,10 @@ class FactaCLTService:
     def _encontrar_melhor_tabela(self, cpf, trab, politica, parcela_max, margem_real: float = 0.0) -> dict:
         nasc = trab.get("dataNascimento")
         matricula = trab.get("matricula")
+
+        data_admissao = trab.get("dataAdmissao", "")
+        meses_registro = calcular_meses(data_admissao)
+
         resp = self.adapter.buscar_operacoes(cpf, nasc, matricula, valor_parcela=parcela_max)
 
         oferta_encontrada = None
@@ -309,13 +313,31 @@ class FactaCLTService:
                 else:
                     logger.info(f"✅ [CLT] Encontradas {len(tabelas_dentro_do_limite)} tabelas dentro do teto. Aplicando regras de escolha.")
                 
+                if meses_registro <= 8:
+                    permitidas = ["65170", "65226"]
+                elif 9 <= meses_registro <= 12:
+                    permitidas = ["65188", "65234"]
+                elif 13 <= meses_registro <=36:
+                    permitidas = ["65196", "65242"]
+                elif 37 <= meses_registro <=120:
+                    permitidas = ["65200", "65250"]
+                else:
+                    permitidas = ["65218", "65269"]
+                
+                tabelas_validas = [
+                    t for t in grupo_para_analise
+                    if any(str(t.get("tabela", "")).startswith(prefix) for prefix in permitidas)
+                ]
+
+                if not tabelas_validas:
+                    logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou para {meses_registro} meses de registro. Usando fallback.")
+                    tabelas_validas = grupo_para_analise
+                
                 tabelas_ordenadas = sorted(
-                    grupo_para_analise,
+                    tabelas_validas,
                     key=lambda t: (
-                        not (int(t.get("prazo")) == 18 and float(t.get("taxa", 0)) == 5.99),
-                        str(t.get("codigoTabela")) == "114389",
-                        t.get("valor_seguro", 0) > 0,
-                        float(t.get("valor_liquido", 0))
+                        "3PMT" in str(t.get("tabela", "")).upper(), 
+                        float(t.get("valor_liquido", 0))            
                     ),
                     reverse=True
                 )
@@ -363,6 +385,10 @@ class FactaCLTService:
     
     def _recalcular_por_valor(self, cpf, nasc, prazo, valor_teto, trab):
         matricula = trab.get("matricula")
+
+        data_admissao = trab.get("dataAdmissao", "")
+        meses_registro = calcular_meses(data_admissao)
+
         resp = self.adapter.buscar_operacoes(cpf, nasc, matricula, valor_solicitado=valor_teto)
         msg_erro = str(resp.get("msg_original", "")).lower()
 
@@ -385,13 +411,31 @@ class FactaCLTService:
 
         grupo_analise = tabelas_dentro_do_limite if tabelas_dentro_do_limite else tabelas_no_prazo
 
+        if meses_registro <= 8:
+            permitidas = ["65170", "65226"]
+        elif 9 <= meses_registro <= 12:
+            permitidas = ["65188", "65234"]
+        elif 13 <= meses_registro <= 36:
+            permitidas = ["65196", "65242"]
+        elif 37 <= meses_registro <= 120:
+            permitidas = ["65200", "65250"]
+        else:
+            permitidas = ["65218", "65269"]
+
+        tabelas_validas = [
+            t for t in grupo_analise
+            if any(str(t.get("tabela", "")).startswith(prefix) for prefix in permitidas)
+        ]
+
+        if not tabelas_validas:
+            logger.warning(f"⚠️ [CLT] Nenhuma tabela permitida retornou no recálculo para {meses_registro} meses de registro. Usando fallback.")
+            tabelas_validas = grupo_analise
+
         tabelas_ordenadas = sorted(
-            grupo_analise,
+            tabelas_validas,
             key=lambda t: (
-                not (int(t.get("prazo")) == 18 and float(t.get("taxa", 0)) == 5.99),
-                str(t.get("codigoTabela")) == "114389",
-                t.get("valor_seguro", 0) > 0, 
-                float(t.get("valor_liquido", 0))
+                "3PMT" in str(t.get("tabela", "")).upper(), 
+                float(t.get("valor_liquido", 0))            
             ),
             reverse=True
         )
