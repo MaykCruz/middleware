@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from app.utils.validators import validate_cpf
 from app.services.data_manager import DataManager
 
 def parse_valor_monetario(valor) -> float:
@@ -151,9 +152,8 @@ def identificar_tipo_chave_pix(chave: str, cpf_cliente: str = "") -> str:
         return "ALEATORIA"
     
     apenas_numeros = re.sub(r'\D', '', chave_limpa)
-    cpf_cliente_limpo = re.sub(r'\D', '', str(cpf_cliente))
 
-    if cpf_cliente_limpo and apenas_numeros == cpf_cliente_limpo:
+    if len(apenas_numeros) == 11 and validate_cpf(apenas_numeros):
         return "CPF"
     
     if len(apenas_numeros) in [10, 11]:

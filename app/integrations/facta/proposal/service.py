@@ -221,11 +221,15 @@ class FactaProposalService:
         """
         logger.info(f"🤖 [Facta] Iniciando esteira CLT para {cpf}")
 
-        dados_api = self.consulta_dados.consultar_dados_completos(cpf)
-        if not dados_api:
-            raise ValueError(f"Cliente não encontrado na Facta: {cpf}")
+        dados_api = self.consulta_dados.consultar_dados_completos(cpf) or {}
+        dados_nc = dados_contexto.get("dados_newcorban", {})
+        dados_basicos = dados_contexto.get("dados_basicos_cliente", {})
+
+        if not dados_api and not dados_nc and not dados_basicos:
+            raise ValueError(f"Cliente não possui dados cadastrais (Facta/NewCorban) para digitação: {cpf}")
         
-        nasc_br = self._converter_data(dados_api.get("DATANASCIMENTO"))
+        nasc_br_raw = dados_api.get("DATANASCIMENTO") or dados_nc.get("data_nascimento") or dados_basicos.get("data_nascimento")
+        nasc_br = self._converter_data(nasc_br_raw)
 
         oferta = dados_contexto.get("oferta_selecionada", {}) 
         detalhes = oferta.get("detalhes", {})

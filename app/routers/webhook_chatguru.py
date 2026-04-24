@@ -1,4 +1,5 @@
 import logging
+import re
 from app.core.logger import chat_id_var
 from app.infrastructure.database import supabase_client
 from app.core.vendedores import EQUIPE_VENDAS
@@ -10,7 +11,7 @@ from typing import Optional, Dict, Any, Union
 from app.integrations.chatguru.service import ChatGuruService
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
-from app.utils.formatters import limpar_nome, identificar_tipo_chave_pix, sanitizar_valor_pix, obter_codigo_tipo_chave_pix_facta
+from app.utils.formatters import limpar_nome, identificar_tipo_chave_pix, sanitizar_valor_pix, obter_codigo_tipo_chave_pix_facta, formatar_cpf, formatar_telefone
 from app.services.bot.memory.session import SessionManager
 
 router = APIRouter(prefix="/webhooks/chatguru", tags=["Webhook ChatGuru"])
@@ -404,12 +405,49 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             return {"status": "erro", "msg": "PIX inválido"}
         
         chave_limpa = sanitizar_valor_pix(chave_raw, tipo_detectado)
+
+        cpf_limpo_cliente = re.sub(r'\D', '', cpf_cliente)
+
+        if tipo_detectado == "CPF" and chave_limpa !=cpf_limpo_cliente:
+            logger.warning(f"⚠️ [ChatGuru] Tentativa de PIX de terceiro no Chat {chat_id}. Chave: {chave_limpa} | Cliente: {cpf_limpo_cliente}")
+
+            msg_erro_titularidade = (
+              "⚠️ *Titularidade Incorreta*\n\n"
+                "Por normas de segurança do banco Central, o valor do empréstimo só pode ser "
+                "depositado em uma conta no *seu nome*.\n\n"
+                "Não é permitido utilizar o CPF de terceiros.\n"
+                "Por favor, informe uma chave PIX vinculada ao seu próprio CPF."
+            )
+            chatguru.preparar_mensagem_dialogo(
+            message_key="blank",
+            variables={"blank": msg_erro_titularidade}
+            )
+
+            chatguru.start_flow_com_valor_sem_conta(chat_id)
+            return {"status": "erro", "msg": "PIX de terceiro recusado"}
+
         logger.info(f"✅ [ChatGuru] PIX Válido ({tipo_detectado}). Disparando diálogo de confirmação.")
 
+        chave_exibicao = chave_limpa
+        tipo_exibicao = tipo_detectado
+
+        if tipo_detectado == "CPF":
+            chave_exibicao = formatar_cpf(chave_limpa)
+            tipo_exibicao = "CPF"
+        elif tipo_detectado == "TELEFONE":
+            chave_exibicao = formatar_telefone(chave_limpa)
+            tipo_exibicao = "Celular"
+        elif tipo_detectado == "EMAIL":
+            tipo_exibicao = "E-mail"
+        elif tipo_detectado == "ALEATORIA":
+            tipo_exibicao = "Chave Aleatória"
+
         msg_confirmacao = (
-            f"🔎 *Confirmação de PIX*\n\n"
-            f"Identifiquei sua chave como *{tipo_detectado}*.\n"
-            f"Chave: *{chave_limpa}*\n\n"
+            f"🏦 Quase lá! *Vamos confirmar o seu PIX?*\n\n"
+            f"Para garantir que o seu dinheiro caia na conta certinha, verifique os dados abaixo:\n\n"
+            f"Tipo da Chave: *{tipo_exibicao}*\n"
+            f"Chave PIX: *{chave_exibicao}*\n\n"
+            f"Confirme abaixo! 👇"
         )
         chatguru.preparar_mensagem_dialogo(
             message_key="blank",
