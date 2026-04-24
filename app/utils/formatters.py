@@ -132,4 +132,62 @@ def formatar_telefone(telefone: str) -> str:
     if len(t) == 11:
         return f"({t[:2]}) {t[2:7]}-{t[7:]}"
     
-    return telefone 
+    return telefone
+
+def identificar_tipo_chave_pix(chave: str, cpf_cliente: str = "") -> str:
+    """
+    Analisa a string da chave PIX para determinar seu tipo.
+    Retorna: 'EMAIL', 'ALEATORIA', 'CPF', 'TELEFONE' ou 'DESCONHECIDO'
+    """
+    if not chave:
+        return "DESCONHECIDO"
+    
+    chave_limpa = str(chave).strip()
+
+    if re.match(r"[^@]+@[^@]+\.[^@]+", chave_limpa):
+        return "EMAIL"
+    
+    if re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", chave_limpa, re.IGNORECASE):
+        return "ALEATORIA"
+    
+    apenas_numeros = re.sub(r'\D', '', chave_limpa)
+    cpf_cliente_limpo = re.sub(r'\D', '', str(cpf_cliente))
+
+    if cpf_cliente_limpo and apenas_numeros == cpf_cliente_limpo:
+        return "CPF"
+    
+    if len(apenas_numeros) in [10, 11]:
+        return "TELEFONE"
+    
+    if len(apenas_numeros) in [12, 13] and apenas_numeros.startswith("55"):
+        return "TELEFONE"
+    
+    return "DESCONHECIDO"
+
+def sanitizar_valor_pix(chave: str, tipo: str) -> str:
+    """
+    Remove sujeira (+55, pontos, traços) baseado no tipo da chave.
+    """
+    if not chave: return ""
+    chave_str = str(chave).strip()
+
+    if tipo == "CPF":
+        return re.sub(r'\D', '', chave_str)
+    
+    if tipo == "TELEFONE":
+        nums = re.sub(r'\D', '', chave_str)
+        if nums.startswith('55') and len(nums) >= 12:
+            return nums[2:]
+        return nums
+    
+    return chave_str
+
+def obter_codigo_tipo_chave_pix_facta(tipo: str) -> int:
+    """Retorna o ID exigido pela API da Facta para cada tipo de chave."""
+    mapa_codigo = {
+        "CPF": 1,
+        "TELEFONE": 2,
+        "EMAIL": 3,
+        "ALEATORIA": 4
+    }
+    return mapa_codigo.get(tipo, 0)

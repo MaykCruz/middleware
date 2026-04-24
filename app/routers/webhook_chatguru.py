@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any, Union
 from app.integrations.chatguru.service import ChatGuruService
 from app.infrastructure.celery import celery_app
 from app.utils.validators import validate_cpf, clean_digits, formatar_telefone_br
-from app.utils.formatters import limpar_nome
+from app.utils.formatters import limpar_nome, identificar_tipo_chave_pix, sanitizar_valor_pix, obter_codigo_tipo_chave_pix_facta
 from app.services.bot.memory.session import SessionManager
 
 router = APIRouter(prefix="/webhooks/chatguru", tags=["Webhook ChatGuru"])
@@ -191,9 +191,50 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
     elif contexto_atual == "aguardando_digitacao_clt_pix":
         logger.info(f"🚀 [ChatGuru] Disparando Task: Digitação CLT com Pix para o Chat {chat_id}")
 
+        contexto_salvo = session.get_context(chat_id)
+        if not contexto_salvo or not contexto_salvo.get("cpf"):
+            logger.error(f"❌ [ChatGuru] Sessão perdida para o Chat {chat_id} na Digitação.")
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Nossa sessão expirou. Um consultor vai te ajudar a finalizar a proposta!"})
+            chatguru.start_put_in_queue(chat_id)
+            return {"status": "erro", "msg": "Sessão expirada"}
+        
+        cpf_cliente = contexto_salvo.get("cpf", "")
         campos = payload.campos_personalizados or {}
-        chave_pix = campos.get("Chave_Pix")
-        tipo_chave_pix = campos.get("Tipo_Chave_Pix")
+        chave_pix_raw = campos.get("Chave_Pix")
+        
+        if not chave_pix_raw:
+            logger.warning(f"⚠️ [ChatGuru] Cliente {chat_id} não informou a Chave PIX.")
+            chatguru.send_message(chat_id=chat_id, message_key="blank", variables={"blank": "⚠️ Não consegui ler a sua chave PIX. Vou chamar um atendente humano!"})
+            chatguru.start_put_in_queue(chat_id)
+            return {"status": "erro", "msg": "Chave PIX ausente"}
+
+        tipo_detectado = identificar_tipo_chave_pix(chave_pix_raw, cpf_cliente)
+        chave_limpa = sanitizar_valor_pix(chave_pix_raw, tipo_detectado)
+        codigo_facta = obter_codigo_tipo_chave_pix_facta(tipo_detectado)
+
+        dados_bancarios_pix = {
+            "tipo_dado": "PIX",
+            "chave_pix": chave_limpa,
+            "tipo_chave_pix": tipo_detectado,
+            "codigo_tipo_chave_pix": codigo_facta,
+            "origem": "digitacao_manual_bot"
+        }
+
+        oferta = contexto_salvo.get("oferta_selecionada", {})
+        detalhes = oferta.get("detalhes", {})
+
+        detalhes["dados_bancarios"] = dados_bancarios_pix
+        oferta["detalhes"] = detalhes
+        contexto_salvo["oferta_selecionada"] = oferta
+
+        session.set_context(chat_id, contexto_salvo)
+        logger.info(f"💾 [ChatGuru] Chave PIX ({tipo_detectado}) salva no contexto para {chat_id}.")
+
+        celery_app.send_task(
+            "app.tasks.api_processor.executar_digitacao_clt_chatguru",
+            kwargs={"chat_id": chat_id, "phone_id": payload.phone_id}
+        )
+        return {"status": "ok", "fluxo": "digitacao_clt_pix"}
     
     elif contexto_atual == "verificar_autorizacao_clt":
         logger.info(f"🔄 [ChatGuru] Verificação manual de autorização solicitada (Chat {chat_id})")
@@ -342,6 +383,46 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
         except Exception as e:
             logger.error(f"❌ [Agendamento] Falha grave ao salvar no banco: {e}")
             return {"status": "erro", "msg": "Erro interno do servidor."}
+        
+    elif contexto_atual == "validar_pix_cliente":
+        logger.info(f"🔑 [ChatGuru] Validando chave PIX digitada para o Chat {chat_id}")
+
+        contexto_salvo = session.get_context(chat_id)
+        cpf_cliente = contexto_salvo.get("cpf", "") if contexto_salvo else ""
+
+        chave_raw = payload.texto_mensagem
+
+        tipo_detectado = identificar_tipo_chave_pix(chave_raw, cpf_cliente)
+
+        if tipo_detectado == "DESCONHECIDO":
+            logger.warning(f"⚠️ [ChatGuru] PIX inválido no Chat {chat_id}: {chave_raw}")
+            chatguru.send_message(
+                chat_id=chat_id,
+                message_key="blank",
+                variables={"blank": "Chave pix não identificada."}
+            )
+            return {"status": "erro", "msg": "PIX inválido"}
+        
+        chave_limpa = sanitizar_valor_pix(chave_raw, tipo_detectado)
+        logger.info(f"✅ [ChatGuru] PIX Válido ({tipo_detectado}). Disparando diálogo de confirmação.")
+
+        msg_confirmacao = (
+            f"🔎 *Confirmação de PIX*\n\n"
+            f"Identifiquei sua chave como *{tipo_detectado}*.\n"
+            f"Chave: *{chave_limpa}*\n\n"
+        )
+        chatguru.preparar_mensagem_dialogo(
+            message_key="blank",
+            variables={"blank": msg_confirmacao}
+        )
+
+        chatguru.client.update_custom_fields(chat_id, {
+            "Chave_Pix": chave_limpa
+        })
+        
+        chatguru.execute_dialog(chat_number=chat_id, dialog_id="69d805b7911870f1d13daa22")
+
+        return {"status": "ok", "fluxo": "validar_pix_cliente"}
 
     else:
         logger.warning(f"⚠️ [ChatGuru] Contexto desconhecido recebido: '{contexto_atual}'. Nenhuma task disparada.")

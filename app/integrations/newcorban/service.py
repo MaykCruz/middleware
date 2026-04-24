@@ -1,11 +1,10 @@
-import httpx
 import logging
 import os
 import re
 from typing import Optional, Dict, Any, List
 from app.integrations.newcorban.client import NewCorbanClient
 from app.services.data_manager import DataManager
-from app.utils.formatters import formatar_cpf, formatar_telefone
+from app.utils.formatters import formatar_cpf, formatar_telefone, identificar_tipo_chave_pix, sanitizar_valor_pix, obter_codigo_tipo_chave_pix_facta
 
 logger = logging.getLogger(__name__)
 
@@ -137,18 +136,11 @@ class NewCorbanService:
         if tipo_liberacao == "PIX":
             chave_pix = dados_new.get("pix")
 
-            tipo_chave_detectado = self._identificar_tipo_chave_pix(chave_pix, cpf_cliente)
+            tipo_chave_detectado = identificar_tipo_chave_pix(chave_pix, cpf_cliente)
 
-            chave_limpa = self._sanitizar_valor_pix(chave_pix, tipo_chave_detectado)
+            chave_limpa = sanitizar_valor_pix(chave_pix, tipo_chave_detectado)
 
-            mapa_codigos_facta = {
-                "CPF": 1,
-                "TELEFONE": 2,
-                "EMAIL": 3,
-                "ALEATORIA": 4
-            }
-
-            codigo_pix = mapa_codigos_facta.get(tipo_chave_detectado, 0)
+            codigo_pix = obter_codigo_tipo_chave_pix_facta(tipo_chave_detectado)
 
             return {
                 "tipo_dado": "PIX",
@@ -178,58 +170,6 @@ class NewCorbanService:
             "CONTA": conta_full,
             "TIPO_CONTA": tipo_conta_sigla
         }
-    
-    def _sanitizar_valor_pix(self, chave: str, tipo: str) -> str:
-        """
-        Método especialista: Remove sujeira (+55, pontos, traços) baseado no tipo.
-        """
-        if not chave: return ""
-
-        chave_str = str(chave).strip()
-
-        if tipo in ["CPF"]:
-            return re.sub(r'\D', '', chave_str)
-        
-        if tipo == "TELEFONE":
-            # Remove não-dígitos
-            nums = re.sub(r'\D', '', chave_str)
-            # Regra do DDI (+55) se sobrar (Ex: 55119... -> 119...)
-            if nums.startswith('55') and len(nums) >= 12:
-                return nums[2:]
-            return nums
-        
-        # Email e Aleatória não devem ser tocados
-        return chave_str
-    
-    def _identificar_tipo_chave_pix(self, chave: str, cpf_cliente: str) -> str:
-        """
-        Analisa a string da chave PIX para determinar seu tipo.
-        Retorna: Retorna: 'EMAIL', 'ALEATORIA', 'CPF', 'CNPJ', 'TELEFONE
-        """
-        if not chave:
-            return "DESCONHECIDO"
-        
-        chave_limpa = str(chave).strip()
-
-        if re.match(r"[^@]+@[^@]+\.[^@]+", chave_limpa):
-            return "EMAIL"
-        
-        if re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", chave_limpa, re.IGNORECASE):
-            return "ALEATORIA"
-        
-        apenas_numeros = re.sub(r'\D', '', chave_limpa)
-        cpf_cliente_limpo = re.sub(r'\D', '', str(cpf_cliente))
-
-        if apenas_numeros == cpf_cliente_limpo:
-            return "CPF"
-        
-        if len(apenas_numeros) in [10, 11]:
-            return "TELEFONE"
-        
-        if len(apenas_numeros) in [12, 13] and apenas_numeros.startswith("55"):
-            return "TELEFONE"
-        
-        return "DESCONHECIDO"
     
     def _formatar_saida_usuario(self, dados_raw: Dict[str, Any]) -> str:
         """
