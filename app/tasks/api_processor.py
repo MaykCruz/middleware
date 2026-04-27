@@ -75,7 +75,7 @@ def continuar_fluxo_v8_chatguru(self, chat_id: str, consult_id: str, status_v8: 
                 if isinstance(dados_sim, list) and len(dados_sim) > 0: 
                     dados_sim = dados_sim[0]
 
-                valor_liberado = dados_sim.get("disbursed_issue_amount", 0.0)
+                valor_liberado = dados_sim.get("disbursement_amount", 0.0)
                 v8_simulacao_valida = True
                 texto_conclusao_v8 = (
                     f"\n\n🚀 *V8: APROVADO!*\n"

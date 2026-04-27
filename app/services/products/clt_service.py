@@ -329,7 +329,7 @@ class CLTService:
                             dados_sim = simulacao.get("dados", {})
                             if isinstance(dados_sim, list) and len(dados_sim) > 0:
                                 dados_sim = dados_sim[0]
-                            valor_liberado = dados_sim.get("disbursed_issue_amount")
+                            valor_liberado = dados_sim.get("disbursement_amount")
                             prazo_real = dados_sim.get("number_of_installments")
                             margem_real = dados_sim.get("installment_value")
 
