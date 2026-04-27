@@ -400,8 +400,10 @@ async def receber_webhook_chatguru(payload: ChatGuruPayload):
             chatguru.send_message(
                 chat_id=chat_id,
                 message_key="blank",
-                variables={"blank": "Chave pix não identificada."}
+                variables={"blank": "Chave pix não identificada, distribuindo atendimento."},
+                force_internal=True
             )
+            chatguru.start_auto_distribution(chat_id)
             return {"status": "erro", "msg": "PIX inválido"}
         
         chave_limpa = sanitizar_valor_pix(chave_raw, tipo_detectado)
