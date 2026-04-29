@@ -101,8 +101,10 @@ class FactaProposalService:
         cep = self._limpar_numeros(cep_raw) or "01001000"
         endereco = dados_api.get("ENDERECO") or nc.get("logradouro") or "RUA NAO INFORMADA"
 
-        numero = dados_api.get("NUMERO") or nc.get("numero")
-        numero = str(numero) if numero and str(numero).strip() != "" else "01"
+        numero_raw = str(dados_api.get("NUMERO") or nc.get("numero") or "").strip()
+        numero_limpo = self._limpar_numeros(numero_raw)
+        numero = str(numero_limpo) if numero_limpo != "" else "01"
+
         bairro = dados_api.get("BAIRRO") or nc.get("bairro") or "CENTRO"
 
         estado_raw = str(dados_api.get("ESTADO") or nc.get("uf") or "SP").upper().strip()
