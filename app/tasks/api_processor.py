@@ -702,8 +702,6 @@ def executar_digitacao_fgts_chatguru(self, chat_id: str, phone_id: str = None):
     chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
-        chatguru.send_message(chat_id, message_key="iniciando_digitacao")
-
         resultado = proposal_service.executar_digitacao_fgts(chat_id)
 
         url_link = resultado.get("url_formalizacao")
@@ -762,8 +760,6 @@ def executar_digitacao_clt_chatguru(self, chat_id: str, phone_id: str = None):
     chatguru = ChatGuruService(chat_id=chat_id, phone_id=phone_id)
 
     try:
-        chatguru.send_message(chat_id, message_key="iniciando_digitacao")
-
         resultado = proposal_service.executar_digitacao_clt(chat_id)
 
         url_link = resultado.get("url_formalizacao")
