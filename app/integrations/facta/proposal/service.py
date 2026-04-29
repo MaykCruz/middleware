@@ -105,12 +105,36 @@ class FactaProposalService:
         numero = str(numero) if numero and str(numero).strip() != "" else "01"
         bairro = dados_api.get("BAIRRO") or nc.get("bairro") or "CENTRO"
 
-        cidade_api = dados_api.get("CIDADE") or nc.get("cidade")
-        cidade_id = self._extrair_id_hibrido(cidade_api)
-        estado = dados_api.get("ESTADO") or nc.get("uf") or "SP"
+        estado_raw = str(dados_api.get("ESTADO") or nc.get("uf") or "SP").upper().strip()
 
-        naturalidade_id = self._extrair_id_hibrido(dados_api.get("CIDADENATURAL"))
-        estado_natural = self.data_manager.get_uf_por_id(naturalidade_id) or estado_rg
+        cidade_raw = str(dados_api.get("CIDADE") or nc.get("cidade") or "SAO PAULO").upper().strip()
+
+        if " - " in cidade_raw:
+            cidade_id = self._extrair_id_hibrido(cidade_raw)
+            estado = estado_raw
+        else:
+            id_busca = self.data_manager.get_cidade_id(cidade_raw, estado_raw)
+            if id_busca:
+                cidade_id = id_busca
+                estado = estado_raw
+            else:
+                logger.warning(f"⚠️ [Mapeador] Cidade '{cidade_raw}/{estado_raw}' não encontrada. Aplicando Fallback SP/SP.")
+                cidade_id = 442
+                estado = "SP"
+
+        naturalidade_raw = str(dados_api.get("CIDADENATURAL") or "SAO PAULO").upper().strip()
+        
+        if " - " in naturalidade_raw:
+            naturalidade_id = self._extrair_id_hibrido(naturalidade_raw)
+            estado_natural = self.data_manager.get_uf_por_id(naturalidade_id) or estado_rg
+        else:
+            id_natural_busca = self.data_manager.get_cidade_id(naturalidade_raw, estado_raw)
+            if id_natural_busca:
+                naturalidade_id = id_natural_busca
+                estado_natural = estado_raw
+            else:
+                naturalidade_id = 442
+                estado_natural = "SP"
         
         celular_contexto = self._formatar_celular(dados_contexto.get("celular"))
 

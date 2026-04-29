@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import unicodedata
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class DataManager:
         self.bancos = {}
         self.meses = {}
         self.estados_por_id_cidade = {}
+        self.id_por_cidade_estado = {}
         self._load_data()
         self._initialized = True
 
@@ -57,6 +59,13 @@ class DataManager:
 
         logger.info(f"✅ [DataManager] Carregamento finalizado. Bancos: {len(self.bancos)} | Meses: {len(self.meses)} | Cidades: {len(self.estados_por_id_cidade)}")
     
+    def _normalizar_texto(self, texto: str) -> str:
+        """Remove acentos, cedilhas e deixa tudo em maiúsculo."""
+        if not texto:
+            return ""
+        texto_limpo = unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('utf-8')
+        return texto_limpo.upper().strip()
+    
     def _indexar_estados_cidades(self, raw_data):
         """
         Lê o formato aninhado e cria um mapa ID -> UF.
@@ -71,11 +80,30 @@ class DataManager:
                 return
             
             for cidade_id, info in dados_cidades.items():
-                uf = info.get("estado", "")
+                uf = str(info.get("estado", "")).upper().strip()
+                nome_cidade = str(info.get("nome", ""))
+
                 if uf:
-                    self.estados_por_id_cidade[str(cidade_id)] = uf.upper()
+                    self.estados_por_id_cidade[str(cidade_id)] = uf
+                
+                if nome_cidade and uf:
+                    nome_norm = self._normalizar_texto(nome_cidade)
+                    chave_busca = f"{nome_norm}|{uf}"
+                    self.id_por_cidade_estado[chave_busca] = int(cidade_id)
+
         except Exception as e:
             logger.error(f"❌ [DataManager] Erro ao indexar cidades: {e}")
+    
+    def get_cidade_id(self, nome_cidade: str, uf: str) -> int:
+        """Cruza o nome limpo e a UF para achar o ID da Facta."""
+        if not nome_cidade or not uf:
+            return None
+        
+        nome_norm = self._normalizar_texto(nome_cidade)
+        uf_norm = str(uf).upper().strip()
+
+        chave_busca = f"{nome_norm}|{uf_norm}"
+        return self.id_por_cidade_estado.get(chave_busca)
     
     def get_uf_por_id(self, cidade_id: int) -> str:
         """
