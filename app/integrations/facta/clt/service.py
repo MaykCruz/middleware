@@ -340,7 +340,7 @@ class FactaCLTService:
                         "3PMT" in str(t.get("tabela", "")).upper(), 
                         "4PMT" in str(t.get("tabela", "")).upper(), 
                         "2PMT" in str(t.get("tabela", "")).upper(),
-                        float(t.get("valor_liquido", 0))            
+                        -float(t.get("valor_liquido", 0))            
                     ),
                     reverse=True
                 )
@@ -442,7 +442,7 @@ class FactaCLTService:
                 "3PMT" in str(t.get("tabela", "")).upper(), 
                 "4PMT" in str(t.get("tabela", "")).upper(), 
                 "2PMT" in str(t.get("tabela", "")).upper(),
-                float(t.get("valor_liquido", 0))            
+                -float(t.get("valor_liquido", 0))            
             ),
             reverse=True
         )
