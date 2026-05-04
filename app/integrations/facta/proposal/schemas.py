@@ -104,6 +104,13 @@ class ProposalStep2Base(FactaBaseModel):
         if not v.isdigit():
             raise ValueError("CEP deve conter apenas números.")
         return v
+    
+    @field_validator('sexo', mode='before')
+    @classmethod
+    def validar_sexo(cls, v: str) -> str:
+        if v in ('M', 'F'):
+            return v
+        return 'M'
 
 class ProposalStep2CLT(ProposalStep2Base):
     """Campos extras obrigatórios apenas para CLT"""

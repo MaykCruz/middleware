@@ -166,6 +166,8 @@ class FactaProposalService:
 
             "nome_mae": nome_mae
         }
+
+        logger.info(f"[DEBUG PAYLOAD DIGITAÇÃO]: {payload}")
         
         oferta_ctx = dados_contexto.get("oferta_selecionada", {})
         detalhes_ctx = oferta_ctx.get("detalhes", {})
