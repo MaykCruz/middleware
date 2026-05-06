@@ -469,18 +469,42 @@ class FactaCLTService:
             d = datetime.strptime(data_str, "%d/%m/%Y")
             return (datetime.today() -d).days // 365
         except: return 0
+
+    def _enviar_termo_com_mutacao(self, cpf: str, nome: str, celular_inicial: str, tipo_envio: str) -> dict:
+        """
+        Tenta enviar o termo. Se der erro de telefone vinculado, muta o último dígito
+        usando a regra do módulo de 10 e tenta novamente (máximo 3 tentativas).
+        """
+        celular_atual = celular_inicial
+
+        for tentativa in range(3):
+            resultado = self.adapter.solicitar_termo(cpf, nome, celular_atual, tipo_envio)
+
+            if resultado.get("status") == "TELEFONE_VINCULADO_OUTRO_CPF":
+                numero_base = celular_atual[:-1]
+                ultimo_digito = int(celular_atual[-1])
+                novo_ultimo_digito = (ultimo_digito + 1) % 10
+
+                celular_atual = f"{numero_base}{novo_ultimo_digito}"
+                logger.info(f"🔄 [CLT] Telefone vinculado! Mutando para {celular_atual} e retentando {tipo_envio} ({tentativa + 1}/3)...")
+                continue
+
+            return resultado
+        
+        return resultado
     
     def solicitar_termo_multicanal(self, cpf: str, nome: str, celular: str) -> dict:
         """
-        Dispara o termo de autorização nos dois canais disponíveis (Whatsapp e SMS)
+        Dispara o termo de autorização no canal Whatsapp e em caso de erro SMS
         para garantir a entrega em caso de instabilidade no broker da Facta.
         """
-        logger.info(f"📲 [CLT Service] Disparando termo multicanal (WPP + SMS) para {cpf}")
+        logger.info(f"📲 [CLT Service] Disparando termo via WhatsApp com mutação para {cpf}")
 
-        resultado_wpp = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="WHATSAPP")
-        resultado_sms = self.adapter.solicitar_termo(cpf, nome, celular, tipo_envio="SMS")
+        resultado_wpp = self._enviar_termo_com_mutacao(cpf, nome, celular, "WHATSAPP")
 
-        if resultado_wpp.get("status") == "ERRO_TECNICO" and resultado_sms.get("status") != "ERRO_TECNICO":
+        if resultado_wpp.get("status") == "ERRO_TECNICO":
+            logger.warning(f"⚠️ [CLT Service] WhatsApp falhou tecnicamente. Acionando Fallback via SMS para {cpf}")
+            resultado_sms = self._enviar_termo_com_mutacao(cpf, nome, celular, "SMS")
             return resultado_sms
             
         return resultado_wpp
